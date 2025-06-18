@@ -53,6 +53,10 @@ async def load_csv_to_mongodb(client, db, file_path, collection_name):
         
         # Converti NaN in None per MongoDB
         df = df.where(pd.notnull(df), None)
+
+        id_field = id_fields.get(collection_name)
+        if id_field and id_field in df.columns:
+            df.rename(columns={id_field: '_id'}, inplace=True)
         
         # Converti DataFrame in lista di dizionari
         records = df.to_dict('records')
@@ -63,12 +67,6 @@ async def load_csv_to_mongodb(client, db, file_path, collection_name):
         # Elimina la collezione esistente se presente
         await collection.drop()
         print(f"Collezione '{collection_name}' eliminata se esistente")
-
-        try:
-            await collection.create_index(id_fields[collection_name], unique=True)
-            print(f"Indice creato per '{id_fields[collection_name]}'")
-        except Exception as e:
-            print(f"Errore creazione indice per '{id_fields[collection_name]}': {e}")
         
         # Inserisci i dati
         if records:
