@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional
+from models.result import ResultModel
 
 class ConstructorModel(BaseModel):
     constructorRef: str = Field(..., min_length=2)
@@ -7,6 +8,8 @@ class ConstructorModel(BaseModel):
     nationality: str = Field(..., min_length=2)
     url: Optional[str] = None
     id: Optional[int] = Field(default=None, alias="_id")  # MongoDB-style _id support
+
+    results: Optional[list[ResultModel]] = []
 
     def to_dict(self) -> dict:
         # Serialize model using alias names (e.g. _id) and exclude fields with None

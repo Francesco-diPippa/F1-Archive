@@ -1,6 +1,7 @@
 from typing import Optional, List, Union
 from database import Database
 from models.constructor import ConstructorModel
+from models.result import ResultModel
 
 
 class ConstructorService:
@@ -53,3 +54,76 @@ class ConstructorService:
     def _get_next_id(self) -> int:
         last_doc = self.collection.find_one(sort=[("_id", -1)])
         return last_doc['_id'] + 1 if last_doc else 1
+    
+    def find_results(self, id: int, year: Optional[int] = None, from_year: Optional[int] = None, to_year: Optional[int] = None) -> Optional[ConstructorModel]:
+        """
+        Retrieve race results for a constructor, optionally filtered by year or range of years.
+        """
+        pipeline = [
+            { "$match": { "_id": int(id) } },
+            {
+                "$lookup": {
+                    "from": "results",
+                    "localField": "_id",
+                    "foreignField": "constructorId",
+                    "as": "race_results"
+                }
+            },
+            { "$unwind": "$race_results" },
+            {
+                "$lookup": {
+                    "from": "races",
+                    "localField": "race_results.raceId",
+                    "foreignField": "_id",
+                    "as": "race_info"
+                }
+            },
+            { "$unwind": "$race_info" }
+        ]
+
+        # Apply filtering by year or year range
+        if year is not None:
+            pipeline.append({
+                "$match": {
+                    "$expr": { "$eq": ["$race_info.year", year] }
+                }
+            })
+        else:
+            conditions = []
+            if from_year is not None:
+                conditions.append({ "$gte": ["$race_info.year", from_year] })
+            if to_year is not None:
+                conditions.append({ "$lte": ["$race_info.year", to_year] })
+            if conditions:
+                pipeline.append({
+                    "$match": {
+                        "$expr": { "$and": conditions }
+                    }
+                })
+
+        # Group the constructor data back with race results
+        pipeline.append({
+            "$group": {
+                "_id": "$_id",
+                "constructorRef": { "$first": "$constructorRef" },
+                "name": { "$first": "$name" },
+                "nationality": { "$first": "$nationality" },
+                "url": { "$first": "$url" },
+                "race_results": { "$push": "$race_results" }
+            }
+        })
+
+        # Run the aggregation pipeline
+        result_cursor = self.collection.aggregate(pipeline)
+        result_list = list(result_cursor)
+
+        if not result_list:
+            return self.find_by_id(id)  # Return basic constructor if no results found
+
+        # Build ConstructorModel with race results
+        constructor = self.find_by_id(id)
+        if constructor:
+            for r in result_list[0].get("race_results", []):
+                constructor.results.append(ResultModel(**r))
+
+        return constructor

@@ -61,13 +61,7 @@ class DriverService:
         last_doc = self.collection.find_one(sort=[("_id", -1)])
         return last_doc['_id'] + 1 if last_doc else 1
 
-    def find_results(
-        self,
-        id: int,
-        year: Optional[int] = None,
-        from_year: Optional[int] = None,
-        to_year: Optional[int] = None
-    ) -> Optional[DriverModel]:
+    def find_results(self, id: int, year: Optional[int] = None, from_year: Optional[int] = None, to_year: Optional[int] = None) -> Optional[DriverModel]:
         """Retrieve race results for a driver, optionally filtered by year or range of years."""
         pipeline = [
             { "$match": { "_id": int(id) } },
@@ -129,11 +123,12 @@ class DriverService:
         result_list = list(result_cursor)
 
         if not result_list:
-            return None
+            result_list = []
 
         # Construct DriverModel with results
         driver = self.find_by_id(id)
-        for r in result_list[0].get("race_results", []):
-            driver.results.append(ResultModel(**r))
+        if result_list.__len__() > 0:
+            for r in result_list[0].get("race_results", []):
+                driver.results.append(ResultModel(**r))
 
         return driver
