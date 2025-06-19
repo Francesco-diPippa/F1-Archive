@@ -55,3 +55,36 @@ class RaceService:
     def _get_next_id(self) -> int:
         last_doc = self.collection.find_one(sort=[("_id", -1)])
         return last_doc['_id'] + 1 if last_doc else 1
+    
+    def find_seasons(self, year: Optional[int] = None, from_year: Optional[int] = None, to_year: Optional[int] = None) -> List[dict]:
+        filter = {}
+        if year is not None:
+            # Priorità: anno specifico
+            filter["year"] = year
+        else:
+            if from_year is not None or to_year is not None:
+                filter["year"] = {}
+                if from_year is not None:
+                    filter["year"]["$gte"] = from_year
+                if to_year is not None:
+                    filter["year"]["$lte"] = to_year
+
+        pipeline = []
+        if filter:
+            pipeline.append({"$match": filter})
+
+        pipeline.extend([
+            {
+                "$group": {
+                    "_id": "$year",
+                    "count": {"$sum": 1}
+                }
+            },
+            {
+                "$sort": {"_id": -1}
+            }
+        ])
+
+        results = list(self.collection.aggregate(pipeline))
+
+        return [{"year": r["_id"], "count": r["count"]} for r in results]

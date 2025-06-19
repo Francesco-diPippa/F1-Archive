@@ -42,3 +42,25 @@ def delete_race(id):
     if not success:
         return jsonify({'error': 'Race not found'}), 404
     return jsonify({'message': 'Race deleted successfully'}), 200
+
+# Route to find all seasons
+
+# /seasons	Restituisce tutte le stagioni
+# /seasons?year=2018	Solo la stagione 2018
+# /seasons?from_year=2010&to_year=2015	Stagioni dal 2010 al 2015
+# /seasons?from_year=2020	Stagioni dal 2020 in poi
+# /seasons?to_year=2020	Stagioni fino 2020 
+@race_bp.route('/seasons', methods=['GET'])
+def find_seasons():
+    year = request.args.get('year', type=int)
+    from_year = request.args.get('from_year', type=int)
+    to_year = request.args.get('to_year', type=int)
+
+    # Validazione: from_year non deve essere maggiore di to_year
+    if from_year is not None and to_year is not None and from_year > to_year:
+        return jsonify({
+            "error": "Invalid year range: from_year must be less than or equal to to_year"
+        }), 400
+
+    seasons = race_service.find_seasons(year=year, from_year=from_year, to_year=to_year)
+    return jsonify(seasons), 200
