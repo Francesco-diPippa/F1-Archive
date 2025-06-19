@@ -42,3 +42,19 @@ def delete_driver(id):
     if not success:
         return jsonify({'error': 'Driver not found'}), 404
     return jsonify({'message': 'Driver deleted successfully'}), 200
+
+@driver_bp.route('/find_results/<id>', methods=['GET'])
+def find_driver_results(id: int):
+    year = request.args.get('year', type=int)
+    from_year = request.args.get('from_year', type=int)
+    to_year = request.args.get('to_year', type=int)
+
+    # Validazione: from_year non deve essere maggiore di to_year
+    if from_year is not None and to_year is not None and from_year > to_year:
+        return jsonify({
+            "error": "Invalid year range: from_year must be less than or equal to to_year"
+        }), 400
+    
+    result = driver_service.find_results(id, year=year, from_year=from_year, to_year=to_year)
+    return jsonify(result.to_dict()), 200
+

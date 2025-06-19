@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional
+from models.result import ResultModel
 
 class DriverModel(BaseModel):
     driverRef: str = Field(..., min_length=2)
@@ -10,6 +11,8 @@ class DriverModel(BaseModel):
     nationality: str = Field(..., min_length=2)
     url: Optional[str] = None
     id: Optional[int] = Field(default=None, alias="_id")  # Mongo-style ID aliasing
+
+    results: Optional[list[ResultModel]] = []
 
     class Config:
         # Custom JSON serialization for datetime fields
