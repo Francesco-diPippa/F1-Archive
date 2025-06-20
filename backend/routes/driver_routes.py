@@ -11,8 +11,11 @@ driver_service = DriverService()
 # Route to get all drivers
 @driver_bp.route('/all', methods=['GET'])
 def find_all_drivers():
-    drivers = driver_service.find_all()
-    return jsonify({'drivers': [d.to_dict() for d in drivers]}), 200
+    nationality = request.args.get('nationality', type=str)
+    sort_alpha = request.args.get('sortAlpha', type=str)
+    
+    drivers = driver_service.find_all(nationality=nationality, sort_alpha=sort_alpha)
+    return jsonify([d.to_dict() for d in drivers]), 200
 
 # Route to get a specific driver by ID
 @driver_bp.route('/<id>', methods=['GET'])
@@ -57,4 +60,9 @@ def find_driver_results(id: int):
     
     result = driver_service.find_results(id, year=year, from_year=from_year, to_year=to_year)
     return jsonify(result.to_dict()), 200
+
+@driver_bp.route('/find_nationalities', methods=['GET'])
+def find_driver_nationalities():
+    result = driver_service.find_all_nationalities()
+    return jsonify(result), 200   
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Search, Grid, List, Calendar, Trophy, Filter, X } from "lucide-react";
+import { Grid, List, Calendar, Filter, X } from "lucide-react";
 import Header from "@/components/Header";
 import { findSeasons } from "@/lib/race";
 import SeasonCard from "@/components/SeasonCard";

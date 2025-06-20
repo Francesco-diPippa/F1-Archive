@@ -2,6 +2,7 @@ from typing import Optional, List, Union
 from database import Database
 from models.driver import DriverModel
 from models.result import ResultModel
+from pymongo import ASCENDING, DESCENDING
 
 
 class DriverService:
@@ -32,9 +33,20 @@ class DriverService:
         driver_data = self.collection.find_one({'_id': int(_id)})
         return DriverModel(**driver_data) if driver_data else None
 
-    def find_all(self) -> List[DriverModel]:
+    def find_all(self, nationality = None, sort_alpha = None) -> List[DriverModel]:
         """Retrieve all drivers."""
-        return [DriverModel(**data) for data in self.collection.find()]
+        query = {}
+        if nationality:
+            query['nationality'] = nationality
+
+        cursor = self.collection.find(query)
+
+        if sort_alpha == 'asc':
+            cursor.sort('forename', ASCENDING)
+        elif sort_alpha == 'desc':
+            cursor.sort('forename', DESCENDING)
+
+        return [DriverModel(**data) for data in cursor]
 
     def delete_by_id(self, _id: int) -> bool:
         """Delete a driver by ID."""
@@ -132,3 +144,8 @@ class DriverService:
                 driver.results.append(ResultModel(**r))
 
         return driver
+    
+    def find_all_nationalities(self) -> List[str]:
+        """Retrieve all distinct nationalities of drivers."""
+        return self.collection.distinct('nationality')
+
