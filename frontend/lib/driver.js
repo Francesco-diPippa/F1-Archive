@@ -20,6 +20,20 @@ export async function findDrivers(nationality = null, sortAlpha = null) {
   }
 }
 
+export async function findDriver(id) {
+  try {
+    if (typeof id === "number") {
+      const response = await axios.get(BASE_URL + `/${id}`);
+      if (response.status === 200) {
+        return response.data;
+      }
+    } else throw Error("function accept int");
+  } catch (error) {
+    console.error("Errore nella richiesta Axios:", error);
+    return [];
+  }
+}
+
 export async function findNationalities() {
   try {
     let url = "/find_nationalities";
@@ -27,6 +41,45 @@ export async function findNationalities() {
     if (response.status === 200) {
       return response.data;
     }
+  } catch (error) {
+    console.error("Errore nella richiesta Axios:", error);
+    return [];
+  }
+}
+
+export async function saveDriver(driver) {
+  try {
+    const response = await axios.post(BASE_URL, {
+      driverRef: driver.surname.trim(),
+      forename: driver.forename,
+      surname: driver.surname,
+      nationality: driver.nationality,
+      dob: driver.dob,
+      url: driver.url,
+    });
+    return response;
+
+    // if (response.status === 201) {
+    //   console.log(response);
+    //   return response.data;
+    // } else {
+    //   console.log(response);
+    //   return response
+    // }
+  } catch (error) {
+    console.error("Errore nella richiesta Axios:", error);
+    return [];
+  }
+}
+
+export async function deleteDriver(id) {
+  console.log(id);
+
+  try {
+    if (typeof id === "number") {
+      const response = await axios.delete(BASE_URL + `/${id}`);
+      return response;
+    } else throw Error("function accept int");
   } catch (error) {
     console.error("Errore nella richiesta Axios:", error);
     return [];

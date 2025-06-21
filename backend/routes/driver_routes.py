@@ -31,6 +31,7 @@ def save_driver():
     try:
         driver = DriverModel(**request.get_json())
     except ValidationError as e:
+        print(e.errors())
         return jsonify({'errors': e.errors()}), 422
     driver_id = driver_service.save(driver)
     return jsonify({'message': 'Driver saved successfully', '_id': driver_id}), 201

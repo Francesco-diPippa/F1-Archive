@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Grid,
   List,
@@ -13,7 +13,11 @@ import {
 import Header from "@/components/Header";
 import DriverList from "@/components/DriverList";
 import DriverCard from "@/components/DriverCard";
-import { findDrivers, findNationalities } from "@/lib/driver";
+import { findDriver, findDrivers, findNationalities } from "@/lib/driver";
+import AddDriverModal from "@/components/AddDriverModal";
+import toast from "react-hot-toast";
+
+// Modal Component per Add Driver
 
 const DriversPage = () => {
   // View and UI states
@@ -42,7 +46,7 @@ const DriversPage = () => {
       }
     };
     fetchNationalities();
-  });
+  }, [allDrivers]);
 
   // Fetch drivers whenever nationality or sort order changes
   useEffect(() => {
@@ -70,6 +74,42 @@ const DriversPage = () => {
   const clearFilters = useCallback(() => {
     setSelectedNationality("");
     setSearchQuery("");
+  }, []);
+
+  const handleAddDriver = useCallback(async (response) => {
+    if (response.status === 201) {
+      const data = response.data;
+      console.log("Response:", data);
+      toast.success(data.message);
+
+      try {
+        const updatedDrivers = await findDrivers(
+          selectedNationality || null,
+          sortAlpha
+        );
+        setAllDrivers(updatedDrivers);
+      } catch (err) {
+        console.error("Error reloading drivers:", err);
+      }
+    }
+  }, []);
+
+  const handleDeleteDriver = useCallback(async (response) => {
+    if (response.status === 200) {
+      const data = response.data;
+      console.log("Response:", data);
+      toast.success(data.message);
+
+      try {
+        const updatedDrivers = await findDrivers(
+          selectedNationality || null,
+          sortAlpha
+        );
+        setAllDrivers(updatedDrivers);
+      } catch (err) {
+        console.error("Error reloading drivers:", err);
+      }
+    }
   }, []);
 
   return (
@@ -167,14 +207,13 @@ const DriversPage = () => {
                 {sortAlpha === "asc" ? <ArrowDownAZ /> : <ArrowUpZA />}
               </button>
 
-              {/* Toggle Add Driver (UI placeholder) */}
+              {/* Toggle Add Driver */}
               <button
-                onClick={() => setAddDriver((prev) => !prev)}
-                className={`px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 text-gray-700 ${
-                  addDriver ? "bg-red-100 border-red-500 text-red-700" : ""
-                }`}
+                onClick={() => setAddDriver(true)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 text-gray-700 hover:bg-red-50 hover:border-red-500 hover:text-red-700 transition-all duration-200"
+                title="Add New Driver"
               >
-                <CirclePlus />
+                <CirclePlus className="w-5 h-5" />
               </button>
 
               {/* View mode switch */}
@@ -212,14 +251,29 @@ const DriversPage = () => {
           {viewMode === "grid" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredDrivers.map((driver) => (
-                <DriverCard key={driver._id} driver={driver} />
+                <DriverCard
+                  key={driver._id}
+                  driver={driver}
+                  onDelete={handleDeleteDriver}
+                />
               ))}
             </div>
           ) : (
-            <DriverList drivers={filteredDrivers} />
+            <DriverList
+              drivers={filteredDrivers}
+              onDelete={handleDeleteDriver}
+            />
           )}
         </div>
       </section>
+
+      {/* Add Driver Modal */}
+      <AddDriverModal
+        isOpen={addDriver}
+        onClose={() => setAddDriver(false)}
+        nationalities={nationalities}
+        onSubmit={handleAddDriver}
+      />
     </div>
   );
 };
