@@ -88,3 +88,41 @@ class RaceService:
         results = list(self.collection.aggregate(pipeline))
 
         return [{"year": r["_id"], "count": r["count"]} for r in results]
+    
+
+    def find_all_races_by_driverId(self, driver_id: int) -> List[RaceModel]:
+        pipeline = [
+                        {
+                            "$lookup": {
+                                "from": "results",
+                                "let": {"race_id": "$_id"},
+                                "pipeline": [
+                                    {
+                                        "$match": {
+                                            "$expr": {
+                                                "$and": [
+                                                    {"$eq": ["$raceId", "$$race_id"]},
+                                                    {"$eq": ["$driverId", int(driver_id)]}
+                                                ]
+                                            }
+                                        }
+                                    }
+                                ],
+                                "as": "filtered_results"
+                            }
+                        },
+                        {
+                            "$match": {
+                                "filtered_results.0": {"$exists": True}
+                            }
+                        },
+                        {
+                            "$project": {
+                                "filtered_results": 0  # Esclude il campo results filtrato
+                            }
+                        }
+                    ]
+
+        races = list(self.collection.aggregate(pipeline))
+        return [RaceModel(**race) for race in races]
+

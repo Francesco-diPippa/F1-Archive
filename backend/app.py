@@ -6,6 +6,7 @@ from routes.driver_routes import driver_bp
 from routes.constructor_routes import constructor_bp
 from routes.race_routes import race_bp
 from routes.result_route import result_bp
+from routes.circuit_routes import circuit_bp
 
 def create_app():
     app = Flask(__name__)
@@ -23,6 +24,7 @@ def create_app():
     app.register_blueprint(constructor_bp, url_prefix='/api/constructor')
     app.register_blueprint(race_bp, url_prefix='/api/race')
     app.register_blueprint(result_bp, url_prefix='/api/result')
+    app.register_blueprint(circuit_bp, url_prefix='/api/circuit')
 
     # Health check endpoint
     @app.route('/api/health')

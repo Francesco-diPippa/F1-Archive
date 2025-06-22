@@ -22,12 +22,22 @@ export async function findDrivers(nationality = null, sortAlpha = null) {
 
 export async function findDriver(id) {
   try {
-    if (typeof id === "number") {
-      const response = await axios.get(BASE_URL + `/${id}`);
-      if (response.status === 200) {
-        return response.data;
-      }
-    } else throw Error("function accept int");
+    const response = await axios.get(BASE_URL + `/${id}`);
+    if (response.status === 200) {
+      return response.data;
+    }
+  } catch (error) {
+    console.error("Errore nella richiesta Axios:", error);
+    return [];
+  }
+}
+
+export async function findDriverResults(id) {
+  try {
+    const response = await axios.get(BASE_URL + `/find_results/${id}`);
+    if (response.status === 200) {
+      return response.data;
+    }
   } catch (error) {
     console.error("Errore nella richiesta Axios:", error);
     return [];

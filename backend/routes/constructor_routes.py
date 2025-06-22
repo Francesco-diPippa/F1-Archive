@@ -57,3 +57,8 @@ def find_constructor_results(id: int):
     
     result = constructor_service.find_results(id, year=year, from_year=from_year, to_year=to_year)
     return jsonify(result.to_dict()), 200
+
+@constructor_bp.route('/find_costructors_by_driverId/<id>', methods=['GET'])
+def find_constructors_by_driverId(id):
+    constructors = constructor_service.find_constructors_by_driverId(id)
+    return jsonify([c.to_dict() for c in constructors]), 200

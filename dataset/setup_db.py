@@ -7,7 +7,7 @@ MONGODB_URI = "mongodb://localhost:27017"
 DATABASE_NAME = "F1_DB"
 PATH_DATASET = './dataset/cleaned'
 
-id_fields = {'constructors': 'constructorId', 'drivers': 'driverId', 'races': 'raceId', 'results': 'resultId'}
+id_fields = {'constructors': 'constructorId', 'drivers': 'driverId', 'races': 'raceId', 'results': 'resultId', 'circuits': 'circuitId'}
 
 def find_files():
      # Verifica se la cartella esiste

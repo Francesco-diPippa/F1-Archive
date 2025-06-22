@@ -6,6 +6,7 @@ from models.result import ResultModel
 class ResultService:
     def __init__(self):
         self.collection = Database().get_collection('results')
+        self.collection.create_index([("driverId", 1)])
 
     def save(self, result: ResultModel) -> Union[int, None]:
         """Salva o aggiorna un costruttore nel database."""

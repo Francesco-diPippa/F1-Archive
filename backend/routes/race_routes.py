@@ -64,3 +64,9 @@ def find_seasons():
 
     seasons = race_service.find_seasons(year=year, from_year=from_year, to_year=to_year)
     return jsonify(seasons), 200
+
+@race_bp.route('/find_all_races_by_driverId/<id>', methods=['GET'])
+def find_all_races_by_driverId(id):
+    races = race_service.find_all_races_by_driverId(id)
+    return jsonify([r.to_dict() for r in races]), 200
+

@@ -127,3 +127,36 @@ class ConstructorService:
                 constructor.results.append(ResultModel(**r))
 
         return constructor
+    
+    def find_constructors_by_driverId(self, driver_id: int) -> List[ConstructorModel]:
+        pipeline = [
+            {
+                "$lookup": {
+                    "from": "results",
+                    "localField": "_id",
+                    "foreignField": "constructorId",
+                    "as": "results"
+                }
+            },
+            { "$unwind": "$results" },
+            {
+                "$match": {
+                    "results.driverId": int(driver_id)
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$_id",
+                    "constructorRef": { "$first": "$constructorRef" },
+                    "name": { "$first": "$name" },
+                    "nationality": { "$first": "$nationality" },
+                    "url": { "$first": "$url" }
+                }
+            }
+        ]
+
+        constructors = list(self.collection.aggregate(pipeline))
+        return [ConstructorModel(**data) for data in constructors]
+        
+
+

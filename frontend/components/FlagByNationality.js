@@ -4,7 +4,7 @@ import React from "react";
 import { nationalityToCountryCode } from "@/lib/nationCode";
 import ReactCountryFlag from "react-country-flag";
 
-function FlagByNationality({ nationality, size = 32 }) {
+function FlagByNationality({ nationality, size = 32, showText = true }) {
   const code = nationalityToCountryCode[nationality];
 
   if (!code) {
@@ -24,7 +24,7 @@ function FlagByNationality({ nationality, size = 32 }) {
         className=""
         title={nationality}
       />
-      <p className="m-3">{nationality}</p>
+      {showText && <p className="m-3">{nationality}</p>}
     </div>
   );
 }
