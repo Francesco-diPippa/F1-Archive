@@ -3,6 +3,7 @@ import { User, Trash, ExternalLink } from "lucide-react";
 import FlagByNationality from "./FlagByNationality";
 import { deleteDriver } from "@/lib/driver";
 import toast from "react-hot-toast";
+import Link from "next/link";
 
 function DriverList({ drivers, onDelete }) {
   const [showConfirm, setShowConfirm] = useState(false);
@@ -41,17 +42,19 @@ function DriverList({ drivers, onDelete }) {
         {drivers.map((driver) => (
           <div key={driver._id} className="px-6 py-4 hover:bg-red-100">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
-              <div className="flex items-center space-x-4">
-                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                  <User className="w-5 h-5 text-red-600" />
+              <Link href={`/driver/${driver._id}`} className="block p-6">
+                <div className="flex items-center space-x-4">
+                  <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                    <User className="w-5 h-5 text-red-600" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-medium text-gray-900">
+                      {driver.forename} {driver.surname}
+                    </h4>
+                    <FlagByNationality nationality={driver.nationality} />
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-lg font-medium text-gray-900">
-                    {driver.forename} {driver.surname}
-                  </h4>
-                  <FlagByNationality nationality={driver.nationality} />
-                </div>
-              </div>
+              </Link>
 
               {/* Link + Delete */}
               <div className="flex items-center space-x-4 justify-end">
