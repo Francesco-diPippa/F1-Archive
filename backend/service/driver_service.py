@@ -8,6 +8,7 @@ from pymongo import ASCENDING, DESCENDING
 class DriverService:
     def __init__(self):
         self.collection = Database().get_collection('drivers')
+        self.results_collection = Database().get_collection('results')
 
     def save(self, driver: DriverModel) -> Union[int, None]:
         """Save or update a driver in the database."""
@@ -52,7 +53,11 @@ class DriverService:
         """Delete a driver by ID."""
         try:
             result = self.collection.delete_one({'_id': int(_id)})
-            return result.deleted_count > 0
+            if result.deleted_count > 0:
+                # Cancella anche tutti i risultati associati
+                self.results_collection.delete_many({'driverId': int(_id)})
+                return True
+            return False
         except Exception:
             return False
 
