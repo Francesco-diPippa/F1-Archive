@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Grid, List, Calendar, Filter, X } from "lucide-react";
+import { Calendar, Filter, X } from "lucide-react";
 import Header from "@/components/Header";
-import { findSeasons } from "@/lib/race";
+import { findSeasons } from "@/lib/season";
 import SeasonCard from "@/components/SeasonCard";
-import SeasonList from "@/components/SeasonList";
+import toast from "react-hot-toast";
 
 const Home = () => {
   const [viewMode, setViewMode] = useState("grid");
@@ -70,6 +70,36 @@ const Home = () => {
     setFilteredSeasons(allSeasons);
     setHasActiveFilters(false);
   }, [allSeasons]);
+
+  const handleDeleteSeason = useCallback(async (response) => {
+    if (response.status === 200) {
+      const data = response.data;
+      console.log("Response:", data);
+      toast.success(data.message);
+
+      try {
+        // Recupera tutte le stagioni aggiornate
+        const updatedSeasons = await findSeasons(null, null, null);
+        setAllSeasons(updatedSeasons);
+
+        // Se ci sono filtri attivi, riapplica il filtro alla nuova lista
+        if (yearRangeStart || yearRangeEnd) {
+          const filtered = await findSeasons(
+            null,
+            yearRangeStart,
+            yearRangeEnd
+          );
+          setFilteredSeasons(filtered);
+          setHasActiveFilters(true);
+        } else {
+          setFilteredSeasons(updatedSeasons);
+          setHasActiveFilters(false);
+        }
+      } catch (err) {
+        console.error("Error reloading seasons:", err);
+      }
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -147,11 +177,17 @@ const Home = () => {
                       }
                     >
                       <option value="">Start</option>
-                      {allSeasons.map((s) => (
-                        <option key={s.year} value={s.year}>
-                          {s.year}
-                        </option>
-                      ))}
+                      {allSeasons
+                        .filter(
+                          (s) =>
+                            !yearRangeEnd ||
+                            parseInt(s.year) <= parseInt(yearRangeEnd)
+                        )
+                        .map((s) => (
+                          <option key={s.year} value={s.year}>
+                            {s.year}
+                          </option>
+                        ))}
                     </select>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -185,41 +221,20 @@ const Home = () => {
               )}
             </div>
 
-            {/* View Mode Toggle */}
-            <div className="flex border border-gray-300 rounded-lg overflow-hidden">
-              <button
-                onClick={() => setViewMode("grid")}
-                className={`p-2 ${
-                  viewMode === "grid"
-                    ? "bg-red-600 text-white"
-                    : "bg-white text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                <Grid className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setViewMode("list")}
-                className={`p-2 ${
-                  viewMode === "list"
-                    ? "bg-red-600 text-white"
-                    : "bg-white text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                <List className="w-5 h-5" />
-              </button>
-            </div>
+            {/* Add season */}
+            <div className="flex border border-gray-300 rounded-lg overflow-hidden"></div>
           </div>
 
           {/* Display Seasons: Grid or List */}
-          {viewMode === "grid" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredSeasons.map((season) => (
-                <SeasonCard key={season.year} season={season} />
-              ))}
-            </div>
-          ) : (
-            <SeasonList seasons={filteredSeasons} />
-          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredSeasons.map((season) => (
+              <SeasonCard
+                key={season.year}
+                season={season}
+                onDelete={handleDeleteSeason}
+              />
+            ))}
+          </div>
         </div>
       </section>
     </div>
