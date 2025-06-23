@@ -42,7 +42,10 @@ def find_driver_standing():
 @season_bp.route('/<year>', methods=['GET'])
 def find_season(year):
     season = season_service.find_season(year=int(year))
-    return jsonify(season.to_dict()), 200
+    if season:
+        return jsonify(season.to_dict()), 200
+    else:
+        return jsonify({'message': f'Season {year} non found'}), 404
 
 @season_bp.route('/<year>', methods=['DELETE'])
 def delete_season(year):

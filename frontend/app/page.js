@@ -1,14 +1,15 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Calendar, Filter, X } from "lucide-react";
+import { Calendar, Filter, X, CirclePlus } from "lucide-react";
 import Header from "@/components/Header";
 import { findSeasons } from "@/lib/season";
 import SeasonCard from "@/components/SeasonCard";
 import toast from "react-hot-toast";
+import AddRaceModal from "@/components/AddRaceModal";
 
 const Home = () => {
-  const [viewMode, setViewMode] = useState("grid");
+  const [addRace, setAddRace] = useState(false);
   const [allSeasons, setAllSeasons] = useState([]);
   const [filteredSeasons, setFilteredSeasons] = useState([]);
 
@@ -70,6 +71,24 @@ const Home = () => {
     setFilteredSeasons(allSeasons);
     setHasActiveFilters(false);
   }, [allSeasons]);
+
+  const handleAddRace = useCallback(async (response) => {
+    console.log(response.status);
+
+    if (response.status === 201) {
+      const data = response.data;
+      console.log("Response:", data);
+      toast.success(data.message);
+
+      try {
+        // Recupera tutte le stagioni aggiornate
+        const updatedSeasons = await findSeasons(null, null, null);
+        setAllSeasons(updatedSeasons);
+      } catch (err) {
+        console.error("Error reloading seasons:", err);
+      }
+    }
+  }, []);
 
   const handleDeleteSeason = useCallback(async (response) => {
     if (response.status === 200) {
@@ -222,7 +241,15 @@ const Home = () => {
             </div>
 
             {/* Add season */}
-            <div className="flex border border-gray-300 rounded-lg overflow-hidden"></div>
+            <div className="flex border border-gray-300 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setAddRace(true)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 text-gray-700 hover:bg-red-50 hover:border-red-500 hover:text-red-700 transition-all duration-200"
+                title="Add New Driver"
+              >
+                <CirclePlus className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           {/* Display Seasons: Grid or List */}
@@ -237,6 +264,12 @@ const Home = () => {
           </div>
         </div>
       </section>
+
+      <AddRaceModal
+        isOpen={addRace}
+        onClose={() => setAddRace(false)}
+        onSubmit={handleAddRace}
+      />
     </div>
   );
 };

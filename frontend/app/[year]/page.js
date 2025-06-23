@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Calendar,
   Trophy,
@@ -8,11 +8,16 @@ import {
   ChevronLeft,
   Medal,
   MapPin,
+  CirclePlus,
+  Trash,
 } from "lucide-react";
 import Header from "@/components/Header";
 import { useParams, useRouter } from "next/navigation";
 import { findSeasonDriverStanding, findSeason } from "@/lib/season";
 import Link from "next/link";
+import AddRaceModal from "@/components/AddRaceModal";
+import toast from "react-hot-toast";
+import { deleteRace } from "@/lib/race";
 
 function convertDateFormat(dateStr) {
   const [year, month, day] = dateStr.split("-");
@@ -20,61 +25,67 @@ function convertDateFormat(dateStr) {
 }
 
 const SeasonDetail = () => {
+  const currentYear = new Date().getFullYear();
   const router = useRouter();
-  const { year: year } = useParams();
+  const { year } = useParams();
   const [seasonData, setSeasonData] = useState(null);
-  const [driversStandings, setDriversStandings] = useState([]);
+  const [driverStandings, setDriverStandings] = useState([]);
   const [races, setRaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("drivers");
+  const [addRaceOpen, setAddRaceOpen] = useState(false);
 
-  // Simulazione dati stagione - sostituisci con la tua API
-  useEffect(() => {
-    const loadSeasonData = async () => {
-      try {
-        setLoading(true);
-        const season = await findSeason(year);
-        const standing = await findSeasonDriverStanding(year);
+  // Race deletion state
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [selectedRaceId, setSelectedRaceId] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-        setSeasonData(season);
-        setRaces(season.races);
-        setDriversStandings(standing);
-      } catch (error) {
-        console.error("Error loading season data:", error);
-      } finally {
-        setLoading(false);
+  // Fetch season data and standings
+  const loadSeasonData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const season = await findSeason(year);
+      if (!season) {
+        toast.error("Failed to load season");
+        return router.back();
       }
-    };
-
-    loadSeasonData();
+      const standings = await findSeasonDriverStanding(year);
+      setSeasonData(season);
+      setRaces(season.races);
+      setDriverStandings(standings);
+    } catch (err) {
+      console.error("Error loading season data:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [year]);
 
-  // Statistiche aggregate
-  const seasonStats = useMemo(() => {
-    if (!driversStandings.length) return {};
+  useEffect(() => {
+    loadSeasonData();
+  }, [loadSeasonData]);
 
-    const totalPoints = driversStandings.reduce(
-      (sum, driver) => sum + driver.totalPoints,
+  // Aggregate statistics
+  const seasonStats = useMemo(() => {
+    if (!driverStandings.length) return {};
+    const totalPoints = driverStandings.reduce(
+      (sum, d) => sum + d.totalPoints,
       0
     );
-    const totalWins = driversStandings.reduce(
-      (sum, driver) => sum + driver.wins,
-      0
-    );
-    const uniqueTeams = [
-      ...new Set(driversStandings.map((standing) => standing.constructorName)),
-    ].length;
+    const totalWins = driverStandings.reduce((sum, d) => sum + d.wins, 0);
+    const uniqueTeams = new Set(driverStandings.map((d) => d.constructorName))
+      .size;
 
     return {
+      totalDrivers: driverStandings.length,
       totalPoints,
       totalWins,
       uniqueTeams,
-      totalDrivers: driversStandings.length,
     };
-  }, [driversStandings]);
+  }, [driverStandings]);
 
-  const getPositionColor = (position) => {
-    switch (position) {
+  // Style position badges
+  const getPositionStyle = (pos) => {
+    switch (pos) {
       case 1:
         return "bg-yellow-100 border-yellow-400 text-yellow-800";
       case 2:
@@ -86,11 +97,41 @@ const SeasonDetail = () => {
     }
   };
 
-  const getPositionIcon = (position) => {
-    if (position <= 3) {
-      return <Medal className="w-5 h-5" />;
+  // Display medal for top 3
+  const getPositionIcon = (pos) =>
+    pos <= 3 ? <Medal className="w-5 h-5" /> : null;
+
+  // Handler after adding a race
+  const handleAddRace = useCallback(
+    async (response) => {
+      if (response.status === 201) {
+        toast.success(response.data.message);
+        await loadSeasonData();
+      }
+    },
+    [loadSeasonData]
+  );
+
+  // Confirm race deletion
+  const confirmDelete = async () => {
+    if (!selectedRaceId) return;
+    setIsDeleting(true);
+    try {
+      const res = await deleteRace(selectedRaceId);
+      if (res.status === 200) {
+        toast.success(res.data.message);
+        await loadSeasonData();
+      } else {
+        toast.error("Failed to delete race.");
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
+      toast.error("Unexpected error.");
+    } finally {
+      setIsDeleting(false);
+      setShowConfirm(false);
+      setSelectedRaceId(null);
     }
-    return null;
   };
 
   if (loading) {
@@ -99,8 +140,8 @@ const SeasonDetail = () => {
         <Header />
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Caricamento stagione...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4" />
+            <p className="text-gray-600">Loading season data...</p>
           </div>
         </div>
       </div>
@@ -117,16 +158,16 @@ const SeasonDetail = () => {
           <div className="flex items-center mb-6">
             <button
               onClick={() => router.back()}
-              className="flex items-center space-x-2 text-red-100 hover:text-white transition-colors"
+              className="flex items-center space-x-2 text-red-100 hover:text-white transition"
             >
               <ChevronLeft className="w-6 h-6" />
-              <span>Torna all'archivio</span>
+              <span>Back to Archive</span>
             </button>
           </div>
 
           <div className="text-center">
             <h1 className="text-4xl md:text-6xl font-bold mb-4">
-              Stagione {seasonData.year}
+              Season {seasonData.year}
             </h1>
             <p className="text-xl md:text-2xl text-red-100 mb-8">
               Formula 1 World Championship
@@ -136,19 +177,22 @@ const SeasonDetail = () => {
               <div className="flex items-center justify-center space-x-2 text-red-100">
                 <Trophy className="w-6 h-6" />
                 <div className="text-left">
-                  <div className="text-sm opacity-75">Campione Piloti</div>
-                  <Link href={`/driver/${driversStandings[0].driverId}`}>
-                    <div className="font-semibold">
-                      {driversStandings[0].forename}{" "}
-                      {driversStandings[0].surname}
-                    </div>
-                  </Link>
+                  <div className="text-sm opacity-75">Drivers Champion</div>
+                  {driverStandings[0] && (
+                    <Link href={`/driver/${driverStandings[0].driverId}`}>
+                      <div className="font-semibold">
+                        {driverStandings[0].forename}{" "}
+                        {driverStandings[0].surname}
+                      </div>
+                    </Link>
+                  )}
                 </div>
               </div>
+
               <div className="flex items-center justify-center space-x-2 text-red-100">
                 <Calendar className="w-6 h-6" />
                 <div className="text-left">
-                  <div className="text-sm opacity-75">Gare Totali</div>
+                  <div className="text-sm opacity-75">Total Races</div>
                   <div className="font-semibold">{seasonData.raceCount}</div>
                 </div>
               </div>
@@ -157,125 +201,107 @@ const SeasonDetail = () => {
         </div>
       </section>
 
-      {/* Stats Overview */}
+      {/* Statistics */}
       <section className="py-8 bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-red-600">
-                {seasonStats.totalDrivers}
-              </div>
-              <div className="text-gray-600">Piloti</div>
+        <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-3 gap-6 px-4">
+          <div className="text-center">
+            <div className="text-3xl font-bold text-red-600">
+              {seasonStats.totalDrivers}
             </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-red-600">
-                {seasonStats.uniqueTeams}
-              </div>
-              <div className="text-gray-600">Team</div>
+            <div className="text-gray-600">Drivers</div>
+          </div>
+          <div className="text-center">
+            <div className="text-3xl font-bold text-red-600">
+              {seasonStats.uniqueTeams}
             </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-red-600">
-                {seasonStats.totalPoints}
-              </div>
-              <div className="text-gray-600">Punti Totali</div>
+            <div className="text-gray-600">Teams</div>
+          </div>
+          <div className="text-center">
+            <div className="text-3xl font-bold text-red-600">
+              {seasonStats.totalPoints}
             </div>
+            <div className="text-gray-600">Total Points</div>
           </div>
         </div>
       </section>
 
-      {/* Content Section */}
+      {/* Tab Switch */}
       <section className="py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Tab Navigation */}
-          <div className="flex border-b border-gray-200 mb-8">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex border-b mb-8">
             <button
               onClick={() => setActiveTab("drivers")}
-              className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
+              className={`px-6 py-3 font-medium text-sm border-b-2 transition ${
                 activeTab === "drivers"
                   ? "border-red-600 text-red-600"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
               <Users className="w-4 h-4 inline mr-2" />
-              Classifica Piloti
+              Driver Standings
             </button>
             <button
               onClick={() => setActiveTab("races")}
-              className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
+              className={`px-6 py-3 font-medium text-sm border-b-2 transition ${
                 activeTab === "races"
                   ? "border-red-600 text-red-600"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
               <MapPin className="w-4 h-4 inline mr-2" />
-              Calendario Gare
+              Race Calendar
             </button>
           </div>
 
-          {/* Drivers Standings */}
+          {/* Driver Standings Table */}
           {activeTab === "drivers" && (
-            <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+            <div className="bg-white rounded-lg shadow border overflow-hidden">
               <div className="px-6 py-4 border-b bg-gray-50">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Classifica Piloti {seasonData.year}
+                <h2 className="text-xl font-semibold text-neutral-800">
+                  Driver Standings
                 </h2>
               </div>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y">
+                  <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Pos
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Pilota
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Team
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Punti
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Vittorie
-                      </th>
+                      <th className="px-6 py-3 text-left">Pos</th>
+                      <th className="px-6 py-3 text-left">Driver</th>
+                      <th className="px-6 py-3 text-left">Team</th>
+                      <th className="px-6 py-3 text-left">Points</th>
+                      <th className="px-6 py-3 text-left">Wins</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {driversStandings.map((driver, index) => (
-                      <tr
-                        key={index}
-                        className="hover:bg-gray-50 transition-colors"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div
-                            className={`inline-flex items-center space-x-2 px-3 py-1 rounded-full border ${getPositionColor(
+                  <tbody className="divide-y">
+                    {driverStandings.map((driver, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-6 py-4">
+                          <span
+                            className={`inline-flex items-center px-3 py-1 rounded-full border ${getPositionStyle(
                               index + 1
                             )}`}
                           >
                             {getPositionIcon(index + 1)}
-                            <span className="font-semibold">{index + 1}</span>
-                          </div>
+                            <span className="ml-1 font-semibold">
+                              {index + 1}
+                            </span>
+                          </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-4">
                           <Link href={`/driver/${driver.driverId}`}>
-                            <div className="font-medium text-gray-900">
+                            <span className="text-gray-900 font-medium">
                               {driver.forename} {driver.surname}
-                            </div>
+                            </span>
                           </Link>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-gray-700">
-                            {driver.constructorName}
-                          </div>
+                        <td className="px-6 py-4 text-gray-900">
+                          {driver.constructorName}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="font-semibold text-red-600">
-                            {driver.totalPoints}
-                          </div>
+                        <td className="px-6 py-4 font-semibold text-red-600">
+                          {driver.totalPoints}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-gray-700">{driver.wins}</div>
+                        <td className="px-6 py-4 text-gray-900">
+                          {driver.wins}
                         </td>
                       </tr>
                     ))}
@@ -285,73 +311,75 @@ const SeasonDetail = () => {
             </div>
           )}
 
-          {/* Races Calendar */}
+          {/* Race Calendar Table */}
           {activeTab === "races" && (
-            <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-              <div className="px-6 py-4 border-b bg-gray-50">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Calendario Gare {seasonData.year}
+            <div className="bg-white rounded-lg shadow border">
+              <div className="px-6 py-4 border-b bg-gray-50 flex justify-between items-center">
+                <h2 className="text-xl font-semibold text-neutral-800">
+                  Race Calendar
                 </h2>
+                {currentYear === year && (
+                  <button
+                    onClick={() => setAddRaceOpen(true)}
+                    title="Add Race"
+                    className="px-3 py-2 border rounded-lg text-gray-700 hover:text-red-700 hover:border-red-500 transition"
+                  >
+                    <CirclePlus className="w-5 h-5" />
+                  </button>
+                )}
               </div>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y">
+                  <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Round
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Gran Premio
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Data
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Vincitore
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Team Vincente
-                      </th>
+                      <th className="px-6 py-3">Round</th>
+                      <th className="px-6 py-3">Grand Prix</th>
+                      <th className="px-6 py-3">Date</th>
+                      <th className="px-6 py-3">Winner</th>
+                      <th className="px-6 py-3">Team</th>
+                      <th className="px-6 py-3">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white divide-y">
                     {races.map((race) => (
-                      <tr
-                        key={race.round}
-                        className="hover:bg-gray-50 transition-colors"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
+                      <tr key={race.raceId} className="hover:bg-gray-50">
+                        <td className="px-6 py-4">
                           <div className="flex items-center justify-center w-10 h-10 bg-red-100 text-red-800 rounded-full font-semibold">
                             {race.round}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-4">
                           <div className="flex items-center space-x-2">
                             <span className="text-2xl">{race.flag}</span>
                             <div>
                               <div className="font-medium text-gray-900">
                                 {race.name}
                               </div>
-                              <div className="text-sm text-gray-500">
+                              <div className="text-sm text-gray-900">
                                 {race.circuitName}
                               </div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-gray-700">
-                            {convertDateFormat(race.date)}
-                          </div>
+                        <td className="px-6 py-4 text-gray-900">
+                          {convertDateFormat(race.date)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="font-medium text-gray-900">
-                            {race.winner || "-"}
-                          </div>
+                        <td className="px-6 py-4 text-gray-900">
+                          {race.winner || "-"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-gray-700">
-                            {race.team || "-"}
-                          </div>
+                        <td className="px-6 py-4 text-gray-900">
+                          {race.team || "-"}
+                        </td>
+                        <td className="px-6 py-4 text-gray-900">
+                          <button
+                            onClick={() => {
+                              setSelectedRaceId(race.raceId);
+                              setShowConfirm(true);
+                            }}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <Trash className="w-5 h-5" />
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -362,6 +390,41 @@ const SeasonDetail = () => {
           )}
         </div>
       </section>
+
+      {/* Modals */}
+      <AddRaceModal
+        isOpen={addRaceOpen}
+        onClose={() => setAddRaceOpen(false)}
+        onSubmit={handleAddRace}
+      />
+      {/* Modale di conferma */}
+      {showConfirm && (
+        <div className="fixed inset-0 bg-white/40 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-2xl border border-gray-200">
+            <h2 className="text-lg font-semibold mb-4 text-gray-800">
+              Sei sicuro di voler eliminare la gara ?
+            </h2>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowConfirm(false);
+                  setSelectedRaceId(null);
+                }}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                disabled={isDeleting}
+              >
+                {isDeleting ? "Eliminazione..." : "Elimina"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

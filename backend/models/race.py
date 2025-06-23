@@ -6,8 +6,9 @@ class RaceModel(BaseModel):
     year: int
     round: int
     circuitId: int
+    round: Optional[int]
     name: str = Field(..., min_length=2)
-    date: Optional[datetime] = None  # Automatic parsing by Pydantic
+    date: Optional[str] = None  # Automatic parsing by Pydantic
     url: Optional[str] = None
     id: Optional[int] = Field(default=None, alias="_id")  # Mongo-style ID aliasing
 

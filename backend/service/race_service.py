@@ -39,7 +39,12 @@ class RaceService:
     def delete_by_id(self, _id: int) -> bool:
         try:
             result = self.collection.delete_one({'_id': int(_id)})
-            return result.deleted_count > 0
+            if result.deleted_count > 0:
+                # Elimina tutti i risultati associati
+                results_collection = Database().get_collection('results')
+                results_collection.delete_many({'raceId': int(_id)})
+                return True
+            return False
         except Exception:
             return False
 

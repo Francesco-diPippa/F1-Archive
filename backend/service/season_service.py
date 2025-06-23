@@ -140,7 +140,7 @@ class SeasonService:
     def find_season(self, year: int) -> Optional[SeasonModel]:
         races_data = list(self.race_collection.find({"year": year}))
         if not races_data:
-            return None
+            return []
 
         enriched_races = []
         for race in races_data:

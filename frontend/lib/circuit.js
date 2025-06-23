@@ -15,3 +15,15 @@ export async function findCircuitsByDriverId(driverId) {
     return [];
   }
 }
+
+export async function findCircuits() {
+  try {
+    const response = await axios.get(BASE_URL + `/all`);
+    if (response.status === 200) {
+      return response.data;
+    }
+  } catch (error) {
+    console.error("Errore nella richiesta Axios:", error);
+    return [];
+  }
+}

@@ -1,77 +1,92 @@
 import axios from "axios";
+import toast from "react-hot-toast";
 
 const BASE_URL = "http://127.0.0.1:5000/api/season";
 
+/**
+ * Fetches seasons based on optional year or year range.
+ * @param {number|null} year - Specific year to filter by.
+ * @param {number|null} from_year - Start year of the range.
+ * @param {number|null} to_year - End year of the range.
+ * @returns {Promise<Array>} - List of seasons or empty array on error.
+ */
 export async function findSeasons(
   year = null,
   from_year = null,
   to_year = null
 ) {
   try {
-    let url = "";
-    if (year !== null) url += `?year=${year}`;
-    else if (from_year !== null && to_year !== null)
-      url += `?from_year=${from_year}&to_year=${to_year}`;
-    else if (from_year !== null) url += `?from_year=${from_year}`;
-    else if (to_year !== null) url += `?to_year=${to_year}`;
+    const params = new URLSearchParams();
+    if (year !== null) params.append("year", year);
+    if (from_year !== null) params.append("from_year", from_year);
+    if (to_year !== null) params.append("to_year", to_year);
 
-    const response = await axios.get(BASE_URL + url);
-    if (response.status === 200) return response.data;
-    if (response.data === 400) {
-      console.error("Codice 400" + response.data);
-      return;
-    }
+    const response = await axios.get(`${BASE_URL}?${params.toString()}`);
+    return response.data;
   } catch (error) {
-    console.error("Errore nella richiesta Axios:", error);
+    console.error("Axios request error:", error);
+    toast.error("Failed to fetch seasons.");
     return [];
   }
 }
 
+/**
+ * Fetches driver standings for a given season year.
+ * @param {number|null} year - Year of the season.
+ * @returns {Promise<Array>} - Driver standings or empty array on error.
+ */
 export async function findSeasonDriverStanding(year) {
   try {
-    let url = "/standing";
-    if (year !== null) url += `?year=${year}`;
-
-    const response = await axios.get(BASE_URL + url);
-    if (response.status === 200) return response.data;
-    if (response.data === 400) {
-      console.error("Codice 400" + response.data);
-      return;
-    }
+    const url =
+      year !== null
+        ? `${BASE_URL}/standing?year=${year}`
+        : `${BASE_URL}/standing`;
+    const response = await axios.get(url);
+    return response.data;
   } catch (error) {
-    console.error("Errore nella richiesta Axios:", error);
+    console.error("Axios request error:", error);
+    toast.error("Failed to fetch driver standings.");
     return [];
   }
 }
 
+/**
+ * Fetches details for a specific season.
+ * @param {number|null} year - Year of the season.
+ * @returns {Promise<Object|null>} - Season details or null on error.
+ */
 export async function findSeason(year) {
+  if (year === null) return null;
   try {
-    let url = "";
-    if (year !== null) url += `/${year}`;
-    const response = await axios.get(BASE_URL + url);
-    if (response.status === 200) return response.data;
-    if (response.data === 400) {
-      console.error("Codice 400" + response.data);
-      return;
-    }
+    const response = await axios.get(`${BASE_URL}/${year}`);
+    return response.data;
   } catch (error) {
-    console.error("Errore nella richiesta Axios:", error);
-    return [];
+    console.error("Axios request error:", error);
+    toast.error("Failed to fetch season details.");
+    return null;
   }
 }
 
+/**
+ * Deletes a specific season.
+ * @param {number|null} year - Year of the season to delete.
+ * @returns {Promise<Object|null>} - Axios response or null on error.
+ */
 export async function deleteSeason(year) {
+  if (year === null) return null;
   try {
-    let url = "";
-    if (year !== null) url += `/${year}`;
-    const response = await axios.delete(BASE_URL + url);
-    if (response.status === 200) return response;
-    if (response.data === 400) {
-      console.error("Codice 400" + response.data);
-      return response;
-    }
+    const response = await axios.delete(`${BASE_URL}/${year}`);
+    return response;
   } catch (error) {
-    console.error("Errore nella richiesta Axios:", error);
-    return [];
+    console.error("Axios request error:", error);
+
+    // Handle expected client errors explicitly
+    if (error.response?.status === 400 || error.response?.status === 404) {
+      toast.error(`Error: ${error.response.status} - ${error.response.data}`);
+      return error.response;
+    }
+
+    toast.error("Failed to delete season.");
+    return null;
   }
 }
