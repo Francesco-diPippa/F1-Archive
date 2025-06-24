@@ -33,7 +33,7 @@ class ConstructorService:
         return ConstructorModel(**data) if data else None
 
     def find_all(self) -> List[ConstructorModel]:
-        return [ConstructorModel(**data) for data in self.collection.find()]
+        return [ConstructorModel(**data) for data in self.collection.find().sort('name', 1)]
 
     def delete_by_id(self, _id: int) -> bool:
         try:

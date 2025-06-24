@@ -59,3 +59,72 @@ class ResultService:
     def _get_next_id(self) -> int:
         last_doc = self.collection.find_one(sort=[("_id", -1)])
         return last_doc['_id'] + 1 if last_doc else 1
+
+    def save_many(self, results: List[ResultModel]) -> List[int]:
+        """Inserisce o aggiorna molti risultati in un batch usando l'id del risultato."""
+        if not results:
+            return []
+
+        inserted_or_updated_ids = []
+        next_id = self._get_next_id()
+
+        for result in results:
+            result_data = {
+                "raceId": result.raceId,
+                "driverId": result.driverId,
+                "constructorId": result.constructorId,
+                "grid": result.grid,
+                "positionText": result.positionText,
+                "positionOrder": result.positionOrder,
+                "points": result.points,
+                "laps": result.laps,
+                "statusId": result.statusId
+            }
+
+            if result.id:
+                print(result.id)
+                # Aggiorna documento esistente con _id = result.id
+                self.collection.update_one(
+                    {'_id': result.id},
+                    {'$set': result_data}
+                )
+                inserted_or_updated_ids.append(result.id)
+            else:
+                # Inserisce nuovo documento con nuovo _id
+                result_data['_id'] = next_id
+                self.collection.insert_one(result_data)
+                inserted_or_updated_ids.append(next_id)
+                next_id += 1
+
+        return inserted_or_updated_ids
+
+    
+    def get_race_standings(self, race_id: int) -> List[dict]:
+        """Restituisce la classifica della gara con i dettagli di pilota e costruttore."""
+        results_cursor = self.collection.find({'raceId': int(race_id)}, sort=[('positionOrder', 1)])
+
+        # Accesso alle collezioni di piloti e costruttori
+        drivers_collection = Database().get_collection('drivers')
+        constructors_collection = Database().get_collection('constructors')
+
+        standings = []
+        for result_data in results_cursor:
+            driver = drivers_collection.find_one({'_id': result_data['driverId']})
+            constructor = constructors_collection.find_one({'_id': result_data['constructorId']})
+            result = ResultModel(**result_data)
+
+            enriched_result = {
+                "resultId": result.id,
+                "positionOrder": result.positionOrder,
+                "positionText": result.positionText,
+                "points": result.points,
+                "driverId": result.driverId,
+                "driverName": f"{driver['forename']} {driver['surname']}" if driver else "N/D",
+                "constructorId": result.constructorId,
+                "constructorName": constructor['name'] if constructor else "N/D",
+            }
+            standings.append(enriched_result)
+
+        return standings
+
+

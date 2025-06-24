@@ -42,3 +42,31 @@ def delete_result(id):
     if not success:
         return jsonify({'error': 'Result not found'}), 404
     return jsonify({'message': 'Result deleted successfully'}), 200
+
+# Route to save multiple results in batch
+@result_bp.route('/batch', methods=['POST'])
+def save_results_batch():
+    try:
+        results_data = request.get_json()
+        if not isinstance(results_data, list):
+            return jsonify({'error': 'Input must be a list of results'}), 400
+
+        results = [ResultModel(**data) for data in results_data]
+    except ValidationError as e:
+        return jsonify({'errors': e.errors()}), 422
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+    inserted_ids = result_service.save_many(results)
+    return jsonify({'message': 'Batch insert successful', 'inserted_ids': inserted_ids}), 201
+
+# Route to get race standings by race ID
+@result_bp.route('/standings/<race_id>', methods=['GET'])
+def get_race_standings(race_id):
+    try:
+        standings = result_service.get_race_standings(race_id)
+        if not standings:
+            return jsonify({'message': 'No results found for the given raceId'}), 404
+        return jsonify(standings), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

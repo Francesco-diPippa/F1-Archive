@@ -12,7 +12,7 @@ constructor_service = ConstructorService()
 @constructor_bp.route('/all', methods=['GET'])
 def find_all_constructors():
     constructors = constructor_service.find_all()
-    return jsonify({'constructors': [c.to_dict() for c in constructors]}), 200
+    return jsonify([c.to_dict() for c in constructors]), 200
 
 # Route to retrieve a constructor by ID
 @constructor_bp.route('/<id>', methods=['GET'])

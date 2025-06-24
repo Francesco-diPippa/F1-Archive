@@ -1,54 +1,63 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import {
-  Calendar,
-  Trophy,
-  Users,
-  ChevronLeft,
-  Medal,
-  MapPin,
-  CirclePlus,
-  Trash,
-} from "lucide-react";
-import Header from "@/components/Header";
+import { Users, MapPin } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { findSeasonDriverStanding, findSeason } from "@/lib/season";
 import Link from "next/link";
-import AddRaceModal from "@/components/AddRaceModal";
 import toast from "react-hot-toast";
-import { deleteRace } from "@/lib/race";
 
-function convertDateFormat(dateStr) {
-  const [year, month, day] = dateStr.split("-");
-  return `${day}/${month}/${year}`;
-}
+import Header from "@/components/Header";
+import AddRaceModal from "@/components/AddRaceModal";
+import AddRaceResultsModal from "@/components/AddRaceResultsModal";
+import ConfirmDeleteModal from "@/components/ConfirmDeleteModal";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import DriverStandingsTable from "@/components/DriverStandingsTable";
+import HeroSectionSeason from "@/components/HeroSectionSeason";
+import SeasonStats from "@/components/SeasonStats";
+import RaceCalendarTable from "@/components/RaceCalendarTable";
+
+import { findSeason, findSeasonDriverStanding } from "@/lib/season";
+import { deleteRace } from "@/lib/race";
+import { deleteResult, getRaceStandigs } from "@/lib/result";
 
 const SeasonDetail = () => {
-  const currentYear = new Date().getFullYear();
   const router = useRouter();
   const { year } = useParams();
+
+  // Data states
   const [seasonData, setSeasonData] = useState(null);
   const [driverStandings, setDriverStandings] = useState([]);
   const [races, setRaces] = useState([]);
+  const [raceResults, setRaceResults] = useState({});
+
+  // UI states
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("drivers");
   const [addRaceOpen, setAddRaceOpen] = useState(false);
+  const [addResultOpen, setAddResultOpen] = useState(false);
+  const [selectedRace, setSelectedRace] = useState(null);
+  const [expandedRaces, setExpandedRaces] = useState(new Set());
+  const [loadingResults, setLoadingResults] = useState(new Set());
 
-  // Race deletion state
+  // Deletion modal states
   const [showConfirm, setShowConfirm] = useState(false);
   const [selectedRaceId, setSelectedRaceId] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showConfirmResult, setShowConfirmResult] = useState(false);
+  const [selectedResultId, setSelectedResultId] = useState(null);
 
-  // Fetch season data and standings
+  /**
+   * Load season details and driver standings.
+   */
   const loadSeasonData = useCallback(async () => {
     setLoading(true);
     try {
       const season = await findSeason(year);
       if (!season) {
-        toast.error("Failed to load season");
+        toast.error("Failed to load season.");
         return router.back();
       }
+
       const standings = await findSeasonDriverStanding(year);
       setSeasonData(season);
       setRaces(season.races);
@@ -58,15 +67,60 @@ const SeasonDetail = () => {
     } finally {
       setLoading(false);
     }
-  }, [year]);
+  }, [year, router]);
 
   useEffect(() => {
     loadSeasonData();
   }, [loadSeasonData]);
 
-  // Aggregate statistics
+  /**
+   * Load results for a specific race.
+   */
+  const loadRaceResults = useCallback(
+    async (raceId, forceReload = false) => {
+      if (!forceReload && raceResults[raceId]) return;
+
+      setLoadingResults((prev) => new Set(prev).add(raceId));
+      try {
+        const results = await getRaceStandigs(raceId);
+        setRaceResults((prev) => ({ ...prev, [raceId]: results }));
+      } catch (error) {
+        console.error("Error loading race results:", error);
+        toast.error("Failed to load results.");
+      } finally {
+        setLoadingResults((prev) => {
+          const updated = new Set(prev);
+          updated.delete(raceId);
+          return updated;
+        });
+      }
+    },
+    [raceResults]
+  );
+
+  /**
+   * Expand/collapse race results dropdown.
+   */
+  const toggleRaceResults = useCallback(
+    async (raceId) => {
+      const newExpanded = new Set(expandedRaces);
+      if (newExpanded.has(raceId)) {
+        newExpanded.delete(raceId);
+      } else {
+        newExpanded.add(raceId);
+        await loadRaceResults(raceId);
+      }
+      setExpandedRaces(newExpanded);
+    },
+    [expandedRaces, loadRaceResults]
+  );
+
+  /**
+   * Aggregated statistics from driver standings.
+   */
   const seasonStats = useMemo(() => {
     if (!driverStandings.length) return {};
+
     const totalPoints = driverStandings.reduce(
       (sum, d) => sum + d.totalPoints,
       0
@@ -83,38 +137,35 @@ const SeasonDetail = () => {
     };
   }, [driverStandings]);
 
-  // Style position badges
-  const getPositionStyle = (pos) => {
-    switch (pos) {
-      case 1:
-        return "bg-yellow-100 border-yellow-400 text-yellow-800";
-      case 2:
-        return "bg-gray-100 border-gray-400 text-gray-800";
-      case 3:
-        return "bg-orange-100 border-orange-400 text-orange-800";
-      default:
-        return "bg-white border-gray-200 text-gray-700";
-    }
-  };
-
-  // Display medal for top 3
-  const getPositionIcon = (pos) =>
-    pos <= 3 ? <Medal className="w-5 h-5" /> : null;
-
-  // Handler after adding a race
+  /**
+   * Handle race addition.
+   */
   const handleAddRace = useCallback(
     async (response) => {
       if (response.status === 201) {
         toast.success(response.data.message);
         await loadSeasonData();
+        if (selectedRace?.raceId)
+          await loadRaceResults(selectedRace.raceId, true);
       }
     },
-    [loadSeasonData]
+    [loadSeasonData, loadRaceResults, selectedRace]
   );
 
-  // Confirm race deletion
-  const confirmDelete = async () => {
+  /**
+   * Prepare deletion confirmation.
+   */
+  const handleDeleteRace = useCallback((raceId) => {
+    setSelectedRaceId(raceId);
+    setShowConfirm(true);
+  }, []);
+
+  /**
+   * Confirm and perform race deletion.
+   */
+  const confirmDelete = useCallback(async () => {
     if (!selectedRaceId) return;
+
     setIsDeleting(true);
     try {
       const res = await deleteRace(selectedRaceId);
@@ -132,100 +183,88 @@ const SeasonDetail = () => {
       setShowConfirm(false);
       setSelectedRaceId(null);
     }
-  };
+  }, [selectedRaceId, loadSeasonData]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4" />
-            <p className="text-gray-600">Loading season data...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  /**
+   * Handle submission of race results.
+   */
+  const handleAddResults = useCallback(
+    async (result, raceId) => {
+      if (!result) return toast.error("Failed to save results.");
+
+      try {
+        toast.success("Results saved.");
+        await loadSeasonData();
+
+        if (raceId) {
+          // Clear cache and force reload
+          setRaceResults((prev) => {
+            const updated = { ...prev };
+            delete updated[raceId];
+            return updated;
+          });
+
+          await loadRaceResults(raceId, true);
+        }
+
+        setAddResultOpen(false);
+      } catch (err) {
+        console.error("Error saving results:", err);
+        toast.error("Error saving results.");
+      }
+    },
+    [loadSeasonData, loadRaceResults]
+  );
+
+  const handleDeleteResult = useCallback((resultId, raceId) => {
+    setSelectedResultId({ id: resultId, raceId });
+    setShowConfirmResult(true);
+  }, []);
+
+  const confirmDeleteResult = useCallback(async () => {
+    console.log(selectedResultId);
+
+    if (!selectedResultId.id) return;
+
+    setIsDeleting(true);
+    try {
+      const res = await deleteResult(selectedResultId.id);
+      console.log(res);
+      if (res.status === 200) {
+        toast.success("Result deleted successfully");
+
+        // Ricarica i risultati aggiornati
+        await loadRaceResults(selectedResultId.raceId, true);
+      } else {
+        toast.error("Failed to delete result.");
+      }
+    } catch (err) {
+      console.error("Error deleting result:", err);
+      toast.error("Unexpected error.");
+    } finally {
+      setIsDeleting(false);
+      setShowConfirmResult(false);
+      setSelectedResultId(null);
+    }
+  }, [selectedResultId, loadRaceResults]);
+
+  if (loading) return <LoadingSpinner />;
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
 
-      {/* Hero Section */}
-      <section className="bg-gradient-to-r from-red-600 to-red-800 text-white py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center mb-6">
-            <button
-              onClick={() => router.back()}
-              className="flex items-center space-x-2 text-red-100 hover:text-white transition"
-            >
-              <ChevronLeft className="w-6 h-6" />
-              <span>Back to Archive</span>
-            </button>
-          </div>
+      {/* Hero section with main season info */}
+      <HeroSectionSeason
+        seasonData={seasonData}
+        router={router}
+        firstDriver={driverStandings[0]}
+      />
 
-          <div className="text-center">
-            <h1 className="text-4xl md:text-6xl font-bold mb-4">
-              Season {seasonData.year}
-            </h1>
-            <p className="text-xl md:text-2xl text-red-100 mb-8">
-              Formula 1 World Championship
-            </p>
+      {/* Summary statistics */}
+      <SeasonStats seasonStats={seasonStats} />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-              <div className="flex items-center justify-center space-x-2 text-red-100">
-                <Trophy className="w-6 h-6" />
-                <div className="text-left">
-                  <div className="text-sm opacity-75">Drivers Champion</div>
-                  {driverStandings[0] && (
-                    <Link href={`/driver/${driverStandings[0].driverId}`}>
-                      <div className="font-semibold">
-                        {driverStandings[0].forename}{" "}
-                        {driverStandings[0].surname}
-                      </div>
-                    </Link>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-center space-x-2 text-red-100">
-                <Calendar className="w-6 h-6" />
-                <div className="text-left">
-                  <div className="text-sm opacity-75">Total Races</div>
-                  <div className="font-semibold">{seasonData.raceCount}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Statistics */}
-      <section className="py-8 bg-white border-b">
-        <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-3 gap-6 px-4">
-          <div className="text-center">
-            <div className="text-3xl font-bold text-red-600">
-              {seasonStats.totalDrivers}
-            </div>
-            <div className="text-gray-600">Drivers</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-red-600">
-              {seasonStats.uniqueTeams}
-            </div>
-            <div className="text-gray-600">Teams</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-red-600">
-              {seasonStats.totalPoints}
-            </div>
-            <div className="text-gray-600">Total Points</div>
-          </div>
-        </div>
-      </section>
-
-      {/* Tab Switch */}
+      {/* Tabs for drivers and races */}
       <section className="py-12">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex border-b mb-8">
@@ -253,140 +292,26 @@ const SeasonDetail = () => {
             </button>
           </div>
 
-          {/* Driver Standings Table */}
           {activeTab === "drivers" && (
-            <div className="bg-white rounded-lg shadow border overflow-hidden">
-              <div className="px-6 py-4 border-b bg-gray-50">
-                <h2 className="text-xl font-semibold text-neutral-800">
-                  Driver Standings
-                </h2>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y">
-                  <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-                    <tr>
-                      <th className="px-6 py-3 text-left">Pos</th>
-                      <th className="px-6 py-3 text-left">Driver</th>
-                      <th className="px-6 py-3 text-left">Team</th>
-                      <th className="px-6 py-3 text-left">Points</th>
-                      <th className="px-6 py-3 text-left">Wins</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {driverStandings.map((driver, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="px-6 py-4">
-                          <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full border ${getPositionStyle(
-                              index + 1
-                            )}`}
-                          >
-                            {getPositionIcon(index + 1)}
-                            <span className="ml-1 font-semibold">
-                              {index + 1}
-                            </span>
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <Link href={`/driver/${driver.driverId}`}>
-                            <span className="text-gray-900 font-medium">
-                              {driver.forename} {driver.surname}
-                            </span>
-                          </Link>
-                        </td>
-                        <td className="px-6 py-4 text-gray-900">
-                          {driver.constructorName}
-                        </td>
-                        <td className="px-6 py-4 font-semibold text-red-600">
-                          {driver.totalPoints}
-                        </td>
-                        <td className="px-6 py-4 text-gray-900">
-                          {driver.wins}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <DriverStandingsTable driverStandings={driverStandings} />
           )}
 
-          {/* Race Calendar Table */}
           {activeTab === "races" && (
-            <div className="bg-white rounded-lg shadow border">
-              <div className="px-6 py-4 border-b bg-gray-50 flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-neutral-800">
-                  Race Calendar
-                </h2>
-                {currentYear === year && (
-                  <button
-                    onClick={() => setAddRaceOpen(true)}
-                    title="Add Race"
-                    className="px-3 py-2 border rounded-lg text-gray-700 hover:text-red-700 hover:border-red-500 transition"
-                  >
-                    <CirclePlus className="w-5 h-5" />
-                  </button>
-                )}
-              </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y">
-                  <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-                    <tr>
-                      <th className="px-6 py-3">Round</th>
-                      <th className="px-6 py-3">Grand Prix</th>
-                      <th className="px-6 py-3">Date</th>
-                      <th className="px-6 py-3">Winner</th>
-                      <th className="px-6 py-3">Team</th>
-                      <th className="px-6 py-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y">
-                    {races.map((race) => (
-                      <tr key={race.raceId} className="hover:bg-gray-50">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-center w-10 h-10 bg-red-100 text-red-800 rounded-full font-semibold">
-                            {race.round}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center space-x-2">
-                            <span className="text-2xl">{race.flag}</span>
-                            <div>
-                              <div className="font-medium text-gray-900">
-                                {race.name}
-                              </div>
-                              <div className="text-sm text-gray-900">
-                                {race.circuitName}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-gray-900">
-                          {convertDateFormat(race.date)}
-                        </td>
-                        <td className="px-6 py-4 text-gray-900">
-                          {race.winner || "-"}
-                        </td>
-                        <td className="px-6 py-4 text-gray-900">
-                          {race.team || "-"}
-                        </td>
-                        <td className="px-6 py-4 text-gray-900">
-                          <button
-                            onClick={() => {
-                              setSelectedRaceId(race.raceId);
-                              setShowConfirm(true);
-                            }}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            <Trash className="w-5 h-5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <RaceCalendarTable
+              year={year}
+              races={races}
+              expandedRaces={expandedRaces}
+              raceResults={raceResults}
+              loadingResults={loadingResults}
+              onAddRace={() => setAddRaceOpen(true)}
+              onDeleteRace={handleDeleteRace}
+              onToggleResults={toggleRaceResults}
+              onAddResult={(race) => {
+                setSelectedRace(race);
+                setAddResultOpen(true);
+              }}
+              onDeleteResult={handleDeleteResult}
+            />
           )}
         </div>
       </section>
@@ -397,34 +322,33 @@ const SeasonDetail = () => {
         onClose={() => setAddRaceOpen(false)}
         onSubmit={handleAddRace}
       />
-      {/* Modale di conferma */}
-      {showConfirm && (
-        <div className="fixed inset-0 bg-white/40 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-2xl border border-gray-200">
-            <h2 className="text-lg font-semibold mb-4 text-gray-800">
-              Sei sicuro di voler eliminare la gara ?
-            </h2>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => {
-                  setShowConfirm(false);
-                  setSelectedRaceId(null);
-                }}
-                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
-              >
-                Annulla
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                disabled={isDeleting}
-              >
-                {isDeleting ? "Eliminazione..." : "Elimina"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
+      <ConfirmDeleteModal
+        isOpen={showConfirm}
+        isDeleting={isDeleting}
+        onCancel={() => {
+          setShowConfirm(false);
+          setSelectedRaceId(null);
+        }}
+        onConfirm={confirmDelete}
+      />
+
+      <AddRaceResultsModal
+        isOpen={addResultOpen}
+        onClose={() => setAddResultOpen(false)}
+        onSubmit={(result) => handleAddResults(result, selectedRace?.raceId)}
+        selectedRace={selectedRace}
+      />
+
+      <ConfirmDeleteModal
+        isOpen={showConfirmResult}
+        isDeleting={isDeleting}
+        onCancel={() => {
+          setShowConfirmResult(false);
+          setSelectedResultId(null);
+        }}
+        onConfirm={confirmDeleteResult}
+      />
     </div>
   );
 };

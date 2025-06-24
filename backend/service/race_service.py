@@ -34,7 +34,7 @@ class RaceService:
         return RaceModel(**data) if data else None
 
     def find_all(self) -> List[RaceModel]:
-        return [RaceModel(**data) for data in self.collection.find()]
+        return [RaceModel(**data) for data in self.collection.find().sort('name', 1)]
 
     def delete_by_id(self, _id: int) -> bool:
         try:

@@ -15,3 +15,18 @@ export async function findConstructorsByDriverId(driverId) {
     return [];
   }
 }
+
+/**
+ * Fetches seasons based on optional year or year range.
+ * @returns {Promise<Array>} - List of seasons or empty array on error.
+ */
+export async function findConstructors() {
+  try {
+    const response = await axios.get(`${BASE_URL}/all`);
+    return response.data;
+  } catch (error) {
+    console.error("Axios request error:", error);
+    toast.error("Failed to fetch seasons.");
+    return [];
+  }
+}
