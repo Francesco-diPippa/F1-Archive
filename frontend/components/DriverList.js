@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { User, Trash, ExternalLink } from "lucide-react";
+import { User, Trash, ExternalLink, SquarePen } from "lucide-react";
 import FlagByNationality from "./FlagByNationality";
 import { deleteDriver } from "@/lib/driver";
 import toast from "react-hot-toast";
 import Link from "next/link";
 
-function DriverList({ drivers, onDelete }) {
+function DriverList({ drivers, onDelete, onUpdate }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedDriver, setSelectedDriver] = useState(null);
@@ -75,6 +75,13 @@ function DriverList({ drivers, onDelete }) {
                   title="Elimina"
                 >
                   <Trash className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => onUpdate(driver._id)}
+                  className="text-blue-600 hover:text-blue-800"
+                  title="Update"
+                >
+                  <SquarePen className="w-5 h-5" />
                 </button>
               </div>
             </div>

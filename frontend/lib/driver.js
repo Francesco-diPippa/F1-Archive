@@ -60,6 +60,7 @@ export async function findNationalities() {
 export async function saveDriver(driver) {
   try {
     const response = await axios.post(BASE_URL, {
+      _id: driver?.id,
       driverRef: driver.surname.trim(),
       forename: driver.forename,
       surname: driver.surname,

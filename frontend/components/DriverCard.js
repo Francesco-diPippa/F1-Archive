@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { User, Trash, ExternalLink } from "lucide-react";
+import { User, Trash, ExternalLink, SquarePen } from "lucide-react";
 import FlagByNationality from "./FlagByNationality";
 import { deleteDriver } from "@/lib/driver";
 import toast from "react-hot-toast";
 import Link from "next/link";
 
-function DriverCard({ driver, onDelete }) {
+function DriverCard({ driver, onDelete, onUpdate }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -49,7 +49,7 @@ function DriverCard({ driver, onDelete }) {
           href={driver.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-blue-600 hover:text-blue-800"
+          className="text-cyan-600 hover:text-cyan-800"
           title="Apri Wikipedia"
         >
           <ExternalLink className="w-5 h-5" />
@@ -60,6 +60,13 @@ function DriverCard({ driver, onDelete }) {
           title="Elimina"
         >
           <Trash className="w-5 h-5" />
+        </button>
+        <button
+          onClick={() => onUpdate(driver._id)}
+          className="text-blue-600 hover:text-blue-800"
+          title="Update"
+        >
+          <SquarePen className="w-5 h-5" />
         </button>
       </div>
 

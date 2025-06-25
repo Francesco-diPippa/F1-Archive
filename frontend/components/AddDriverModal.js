@@ -1,10 +1,25 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, CirclePlus, User, Flag, Calendar } from "lucide-react";
 import { saveDriver } from "@/lib/driver";
 import toast from "react-hot-toast";
 
-function AddDriverModal({ isOpen, onClose, nationalities, onSubmit }) {
+function getDate(rawDate) {
+  const date = new Date(rawDate);
+  const pad = (n) => n.toString().padStart(2, "0");
+
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+    date.getDate()
+  )}`;
+}
+
+function AddDriverModal({
+  isOpen,
+  onClose,
+  nationalities,
+  onSubmit,
+  driverToUpdate,
+}) {
   const [formData, setFormData] = useState({
     forename: "",
     surname: "",
@@ -12,6 +27,27 @@ function AddDriverModal({ isOpen, onClose, nationalities, onSubmit }) {
     dob: "",
     url: "",
   });
+
+  useEffect(() => {
+    if (driverToUpdate && isOpen) {
+      setFormData({
+        forename: driverToUpdate.forename || "",
+        surname: driverToUpdate.surname || "",
+        nationality: driverToUpdate.nationality || "",
+        dob: getDate(driverToUpdate.dob) || "",
+        url: driverToUpdate.url || "",
+        id: driverToUpdate._id,
+      });
+    } else if (isOpen) {
+      setFormData({
+        forename: "",
+        surname: "",
+        nationality: "",
+        dob: "",
+        url: "",
+      });
+    }
+  }, [driverToUpdate, isOpen]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -25,6 +61,8 @@ function AddDriverModal({ isOpen, onClose, nationalities, onSubmit }) {
     e.preventDefault();
 
     try {
+      console.log(formData);
+
       const response = await saveDriver(formData);
       onSubmit(response); // facoltativo, dipende se vuoi passare i dati al parent
       // Reset form

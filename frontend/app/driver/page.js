@@ -33,6 +33,8 @@ const DriversPage = () => {
   const [selectedNationality, setSelectedNationality] = useState("");
   const [sortAlpha, setSortAlpha] = useState("asc");
 
+  const [driverToUpdate, setDriverToUpdate] = useState(null);
+
   // Indicates if any filters are applied
   const hasActiveFilters = !!selectedNationality || !!searchQuery.trim();
 
@@ -76,6 +78,8 @@ const DriversPage = () => {
     setSearchQuery("");
   }, []);
 
+  useEffect(() => console.log(driverToUpdate), [driverToUpdate]);
+
   const handleAddDriver = useCallback(async (response) => {
     if (response.status === 201) {
       const data = response.data;
@@ -88,9 +92,22 @@ const DriversPage = () => {
           sortAlpha
         );
         setAllDrivers(updatedDrivers);
+        setDriverToUpdate(null);
       } catch (err) {
         console.error("Error reloading drivers:", err);
       }
+    }
+  }, []);
+
+  const handleUpdateDriver = useCallback(async (driverId) => {
+    console.log(`Updating driver ${driverId}`);
+
+    try {
+      const driver = await findDriver(driverId);
+      setDriverToUpdate(driver);
+      setAddDriver(true);
+    } catch (err) {
+      console.error("Error reloading driver:", err);
     }
   }, []);
 
@@ -255,6 +272,7 @@ const DriversPage = () => {
                   key={driver._id}
                   driver={driver}
                   onDelete={handleDeleteDriver}
+                  onUpdate={handleUpdateDriver}
                 />
               ))}
             </div>
@@ -273,6 +291,8 @@ const DriversPage = () => {
         onClose={() => setAddDriver(false)}
         nationalities={nationalities}
         onSubmit={handleAddDriver}
+        onUpdate
+        driverToUpdate={driverToUpdate}
       />
     </div>
   );

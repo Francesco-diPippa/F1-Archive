@@ -20,7 +20,6 @@ class DriverService:
             'nationality': driver.nationality,
             'url': driver.url
         }
-
         if driver.id:
             result = self.collection.update_one({'_id': driver.id}, {'$set': driver_data})
             return result.modified_count
