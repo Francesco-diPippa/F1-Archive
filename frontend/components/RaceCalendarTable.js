@@ -18,6 +18,7 @@ const RaceCalendarTable = ({
   onToggleResults,
   onAddResult,
   onDeleteResult,
+  onUpdateResult,
 }) => {
   const isCurrentSeasonYear = isCurrentSeason(year);
 
@@ -136,6 +137,7 @@ const RaceCalendarTable = ({
                     results={raceResults[race.raceId]}
                     onAddResults={() => onAddResult(race)}
                     onDelete={onDeleteResult}
+                    onUpdate={onUpdateResult}
                   />
                 )}
               </React.Fragment>

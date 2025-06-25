@@ -9,6 +9,7 @@ class ResultService:
         self.collection.create_index([("driverId", 1)])
 
     def save(self, result: ResultModel) -> Union[int, None]:
+        print(result)
         """Salva o aggiorna un costruttore nel database."""
         result_data = {
             "raceId": result.raceId,
@@ -21,7 +22,8 @@ class ResultService:
             "laps": result.laps,
             "statusId": result.statusId
         }
-
+        if result.id:
+            print(f'da modificare {result.id}')
         if result.id:
             res = self.collection.update_one(
                 {'_id': result.id},

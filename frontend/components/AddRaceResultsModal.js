@@ -27,7 +27,13 @@ const pointsMap = {
   10: 1,
 };
 
-const AddRaceResultsModal = ({ isOpen, onClose, onSubmit, selectedRace }) => {
+const AddRaceResultsModal = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  selectedRace,
+  resultToUpdate,
+}) => {
   const [result, setResult] = useState({
     driverId: "",
     constructorId: "",
@@ -55,7 +61,23 @@ const AddRaceResultsModal = ({ isOpen, onClose, onSubmit, selectedRace }) => {
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return;
+
+    // Carica dati ogni volta che la modale si apre
+    loadDriversAndConstructors();
+
+    // Inizializza risultato
+    if (resultToUpdate) {
+      setResult({
+        driverId: String(resultToUpdate.driverId),
+        constructorId: String(resultToUpdate.constructorId),
+        positionOrder: resultToUpdate.positionOrder,
+        retired: resultToUpdate.positionText === "R",
+        grid: resultToUpdate.grid,
+        points: resultToUpdate.points,
+        laps: resultToUpdate.laps,
+      });
+    } else {
       setResult({
         driverId: "",
         constructorId: "",
@@ -65,9 +87,8 @@ const AddRaceResultsModal = ({ isOpen, onClose, onSubmit, selectedRace }) => {
         points: "",
         laps: "",
       });
-      loadDriversAndConstructors();
     }
-  }, [isOpen]);
+  }, [isOpen, resultToUpdate]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -78,15 +99,11 @@ const AddRaceResultsModal = ({ isOpen, onClose, onSubmit, selectedRace }) => {
         [name]: type === "checkbox" ? checked : value,
       };
 
-      // Se si sta aggiornando la posizione
-      if (name === "positionOrder") {
+      if (name === "positionOrder" && !prev.retired) {
         const position = parseInt(value);
-        if (!prev.retired) {
-          updated.points = pointsMap[position] || 0;
-        }
+        updated.points = pointsMap[position] || 0;
       }
 
-      // Se si sta aggiornando il checkbox "retired"
       if (name === "retired") {
         if (checked) {
           updated.points = 0;
@@ -105,19 +122,26 @@ const AddRaceResultsModal = ({ isOpen, onClose, onSubmit, selectedRace }) => {
     e.preventDefault();
     setLoading(true);
 
+    console.log(resultToUpdate);
+
     try {
       const finalResult = {
-        raceId: parseInt(selectedRace.raceId),
+        _id: resultToUpdate ? resultToUpdate._id : null,
+        raceId: resultToUpdate
+          ? resultToUpdate.raceId
+          : parseInt(selectedRace.raceId),
         driverId: parseInt(result.driverId),
         constructorId: parseInt(result.constructorId),
         positionOrder: parseInt(result.positionOrder),
-        positionText: result.retired ? "R" : result.positionOrder,
+        positionText: result.retired ? "R" : result.positionOrder + "",
         grid: parseInt(result.grid),
         points: parseInt(result.points),
         laps: parseInt(result.laps),
         statusId: 1,
       };
-      const response = saveResult(finalResult);
+      //console.log(finalResult);
+
+      const response = await saveResult(finalResult);
       onSubmit(response);
       onClose();
     } catch (error) {
@@ -171,7 +195,7 @@ const AddRaceResultsModal = ({ isOpen, onClose, onSubmit, selectedRace }) => {
             >
               <option value="">Seleziona pilota...</option>
               {drivers.map((driver) => (
-                <option key={driver._id} value={driver._id}>
+                <option key={driver._id} value={String(driver._id)}>
                   {driver.forename} {driver.surname}
                 </option>
               ))}
@@ -193,7 +217,7 @@ const AddRaceResultsModal = ({ isOpen, onClose, onSubmit, selectedRace }) => {
             >
               <option value="">Seleziona costruttore...</option>
               {constructors.map((constructor) => (
-                <option key={constructor._id} value={constructor._id}>
+                <option key={constructor._id} value={String(constructor._id)}>
                   {constructor.name}
                 </option>
               ))}

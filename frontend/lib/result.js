@@ -96,3 +96,26 @@ export const deleteResult = async (id) => {
     }
   }
 };
+
+/**
+ * Invia un batch di risultati al backend.
+ * @param {Object} results - Array di oggetti risultato da inviare.
+ */
+export const findResult = async (resultId) => {
+  try {
+    const response = await axios.get(`${BASE_URL}/${resultId}`);
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      // Errore lato server
+      throw new Error(
+        `Server error: ${error.response.status} - ${JSON.stringify(
+          error.response.data
+        )}`
+      );
+    } else {
+      // Errore lato client o di rete
+      throw new Error(`Request failed: ${error.message}`);
+    }
+  }
+};

@@ -17,8 +17,8 @@ import SeasonStats from "@/components/SeasonStats";
 import RaceCalendarTable from "@/components/RaceCalendarTable";
 
 import { findSeason, findSeasonDriverStanding } from "@/lib/season";
-import { deleteRace } from "@/lib/race";
-import { deleteResult, getRaceStandigs } from "@/lib/result";
+import { deleteRace, findRace } from "@/lib/race";
+import { deleteResult, findResult, getRaceStandigs } from "@/lib/result";
 
 const SeasonDetail = () => {
   const router = useRouter();
@@ -45,6 +45,9 @@ const SeasonDetail = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showConfirmResult, setShowConfirmResult] = useState(false);
   const [selectedResultId, setSelectedResultId] = useState(null);
+
+  // Update modal
+  const [resultToUpdate, setResultToUpdate] = useState(null);
 
   /**
    * Load season details and driver standings.
@@ -190,12 +193,14 @@ const SeasonDetail = () => {
    */
   const handleAddResults = useCallback(
     async (result, raceId) => {
+      console.log(raceId);
+
       if (!result) return toast.error("Failed to save results.");
 
       try {
         toast.success("Results saved.");
         await loadSeasonData();
-
+        await loadRaceResults(raceId, true);
         if (raceId) {
           // Clear cache and force reload
           setRaceResults((prev) => {
@@ -247,6 +252,23 @@ const SeasonDetail = () => {
       setSelectedResultId(null);
     }
   }, [selectedResultId, loadRaceResults]);
+
+  const handleUpdateResult = useCallback(async (resultId) => {
+    console.log(`Updating ${resultId}`);
+    try {
+      const result = await findResult(resultId);
+      setResultToUpdate(result);
+      const race = await findRace(result.raceId);
+      console.log(race);
+
+      setSelectedRace(race);
+      setAddResultOpen(true);
+    } catch (error) {
+      console.error("Error loading race results:", error);
+      toast.error("Failed to load results.");
+      setAddRaceOpen(false);
+    }
+  }, []);
 
   if (loading) return <LoadingSpinner />;
 
@@ -311,6 +333,7 @@ const SeasonDetail = () => {
                 setAddResultOpen(true);
               }}
               onDeleteResult={handleDeleteResult}
+              onUpdateResult={handleUpdateResult}
             />
           )}
         </div>
@@ -336,8 +359,9 @@ const SeasonDetail = () => {
       <AddRaceResultsModal
         isOpen={addResultOpen}
         onClose={() => setAddResultOpen(false)}
-        onSubmit={(result) => handleAddResults(result, selectedRace?.raceId)}
+        onSubmit={(result) => handleAddResults(result, selectedRace?.raceId || selectedRace?._id)}
         selectedRace={selectedRace}
+        resultToUpdate={resultToUpdate}
       />
 
       <ConfirmDeleteModal

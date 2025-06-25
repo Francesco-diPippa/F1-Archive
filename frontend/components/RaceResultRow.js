@@ -1,5 +1,5 @@
 import React from "react";
-import { CirclePlus, Medal, Trash } from "lucide-react";
+import { CirclePlus, Medal, SquarePen, Trash } from "lucide-react";
 import Link from "next/link";
 
 /**
@@ -27,8 +27,13 @@ const getPositionIcon = (pos) =>
 /**
  * Expandable row component showing race results
  */
-const RaceResultsRow = ({ race, results, onAddResults, onDelete }) => {
-  console.log(results);
+const RaceResultsRow = ({
+  race,
+  results,
+  onAddResults,
+  onDelete,
+  onUpdate,
+}) => {
 
   return (
     <tr>
@@ -101,11 +106,22 @@ const RaceResultsRow = ({ race, results, onAddResults, onDelete }) => {
                       </td>
 
                       <td className="px-3 py-2 font-semibold text-red-600">
-                        <button
-                          onClick={() => onDelete(result.resultId, race.raceId)}
-                        >
-                          <Trash />
-                        </button>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() =>
+                              onDelete(result.resultId, race.raceId)
+                            }
+                            className="hover:text-red-800 transition-colors"
+                          >
+                            <Trash className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => onUpdate(result.resultId)}
+                            className="hover:text-blue-600 transition-colors"
+                          >
+                            <SquarePen className="w-5 h-5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
