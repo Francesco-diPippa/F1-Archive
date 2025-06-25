@@ -4,8 +4,9 @@ import { X, CirclePlus, MapPin, Trophy, Calendar } from "lucide-react";
 import { saveRace } from "@/lib/race";
 import toast from "react-hot-toast";
 import { findCircuits } from "@/lib/circuit";
+import { formToJSON } from "axios";
 
-function AddRaceModal({ isOpen, onClose, onSubmit }) {
+function AddRaceModal({ isOpen, onClose, onSubmit, raceToUpdate }) {
   const currentYear = new Date().getFullYear();
   const [circuits, setCircuits] = useState([]);
   const [isLoadingCircuits, setIsLoadingCircuits] = useState(true);
@@ -33,6 +34,17 @@ function AddRaceModal({ isOpen, onClose, onSubmit }) {
       }
     };
 
+    if (raceToUpdate) {
+      setFormData({
+        id: parseInt(raceToUpdate._id),
+        circuitId: raceToUpdate.circuitId,
+        date: raceToUpdate.date,
+        name: raceToUpdate.name,
+        round: raceToUpdate.round,
+        year: raceToUpdate.year,
+      });
+    }
+
     loadCircuits();
   }, [isOpen]);
 
@@ -56,6 +68,9 @@ function AddRaceModal({ isOpen, onClose, onSubmit }) {
     }
 
     try {
+      console.log("form data");
+      console.log(formData);
+
       const response = await saveRace(formData);
       onSubmit?.(response);
       setFormData({

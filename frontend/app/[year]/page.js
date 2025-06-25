@@ -155,6 +155,18 @@ const SeasonDetail = () => {
     [loadSeasonData, loadRaceResults, selectedRace]
   );
 
+  const handleUpdateRace = useCallback(async (raceId) => {
+    try {
+      const race = await findRace(parseInt(raceId));
+      setSelectedRace(race);
+      setAddRaceOpen(true);
+    } catch (error) {
+      console.error("Error loading race:", error);
+      toast.error("Failed to load race.");
+      setAddRaceOpen(false);
+    }
+  }, []);
+
   /**
    * Prepare deletion confirmation.
    */
@@ -267,6 +279,7 @@ const SeasonDetail = () => {
       console.error("Error loading race results:", error);
       toast.error("Failed to load results.");
       setAddRaceOpen(false);
+      setSelectedRace(null);
     }
   }, []);
 
@@ -326,6 +339,7 @@ const SeasonDetail = () => {
               raceResults={raceResults}
               loadingResults={loadingResults}
               onAddRace={() => setAddRaceOpen(true)}
+              onUpdateRace={handleUpdateRace}
               onDeleteRace={handleDeleteRace}
               onToggleResults={toggleRaceResults}
               onAddResult={(race) => {
@@ -344,6 +358,7 @@ const SeasonDetail = () => {
         isOpen={addRaceOpen}
         onClose={() => setAddRaceOpen(false)}
         onSubmit={handleAddRace}
+        raceToUpdate={selectedRace}
       />
 
       <ConfirmDeleteModal
@@ -359,7 +374,9 @@ const SeasonDetail = () => {
       <AddRaceResultsModal
         isOpen={addResultOpen}
         onClose={() => setAddResultOpen(false)}
-        onSubmit={(result) => handleAddResults(result, selectedRace?.raceId || selectedRace?._id)}
+        onSubmit={(result) =>
+          handleAddResults(result, selectedRace?.raceId || selectedRace?._id)
+        }
         selectedRace={selectedRace}
         resultToUpdate={resultToUpdate}
       />

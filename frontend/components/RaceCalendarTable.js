@@ -1,5 +1,11 @@
 import React from "react";
-import { CirclePlus, Trash, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  CirclePlus,
+  Trash,
+  ChevronDown,
+  ChevronUp,
+  SquarePen,
+} from "lucide-react";
 import RaceResultsRow from "./RaceResultRow";
 import { convertDateFormat, isCurrentSeason } from "@/utils/seasonUtils";
 
@@ -14,6 +20,7 @@ const RaceCalendarTable = ({
   raceResults,
   loadingResults,
   onAddRace,
+  onUpdateRace,
   onDeleteRace,
   onToggleResults,
   onAddResult,
@@ -125,6 +132,13 @@ const RaceCalendarTable = ({
                         title="Delete Race"
                       >
                         <Trash className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => onUpdateRace(race.raceId)}
+                        className="text-red-600 hover:text-red-800 transition"
+                        title="Delete Race"
+                      >
+                        <SquarePen className="w-5 h-5" />
                       </button>
                     </div>
                   </td>

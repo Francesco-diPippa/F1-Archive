@@ -13,12 +13,12 @@ const ConfirmDeleteModal = ({ isOpen, isDeleting, onConfirm, onCancel }) => {
       <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-2xl border border-gray-200">
         {/* Modal Header */}
         <h2 className="text-lg font-semibold mb-4 text-gray-800">
-          Are you sure you want to delete this race?
+          Are you sure you want to delete?
         </h2>
         
         {/* Modal Description */}
         <p className="text-gray-600 mb-6">
-          This action cannot be undone. All race data and results will be permanently removed.
+          This action cannot be undone. All data will be permanently removed.
         </p>
 
         {/* Action Buttons */}

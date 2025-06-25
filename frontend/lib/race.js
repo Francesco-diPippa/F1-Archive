@@ -25,7 +25,9 @@ export async function findRace(id) {
  */
 export async function findRacesByDriverId(driverId) {
   try {
-    const response = await axios.get(`${BASE_URL}/find_all_races_by_driverId/${driverId}`);
+    const response = await axios.get(
+      `${BASE_URL}/find_all_races_by_driverId/${driverId}`
+    );
     if (response.status === 200) return response.data;
   } catch (error) {
     console.error("Error during Axios request (findRacesByDriverId):", error);
@@ -41,6 +43,7 @@ export async function findRacesByDriverId(driverId) {
 export async function saveRace(race) {
   try {
     const response = await axios.post(BASE_URL, {
+      _id: race?.id,
       year: race.year,
       round: race.round,
       circuitId: race.circuitId,
