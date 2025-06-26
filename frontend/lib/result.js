@@ -1,4 +1,5 @@
 import axios from "axios";
+import toast from "react-hot-toast";
 
 // Base URL for all race-related API requests
 const BASE_URL = "http://127.0.0.1:5000/api/result";
@@ -42,11 +43,9 @@ export const saveResult = async (result) => {
   } catch (error) {
     if (error.response) {
       // Errore lato server
-      throw new Error(
-        `Server error: ${error.response.status} - ${JSON.stringify(
-          error.response.data
-        )}`
-      );
+      console.log(error.response.data);
+
+      throw new Error(`${error.response.data.error}`);
     } else {
       // Errore lato client o di rete
       throw new Error(`Request failed: ${error.message}`);

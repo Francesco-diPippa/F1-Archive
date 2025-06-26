@@ -1,150 +1,191 @@
 "use client";
-import React, { useEffect, useState } from "react";
-import { X, CirclePlus, MapPin, Trophy, Calendar } from "lucide-react";
-import { saveRace } from "@/lib/race";
-import toast from "react-hot-toast";
-import { findCircuits } from "@/lib/circuit";
-import { formToJSON } from "axios";
 
-function AddRaceModal({ isOpen, onClose, onSubmit, raceToUpdate }) {
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  X,
+  CirclePlus,
+  MapPin,
+  Trophy,
+  Calendar as CalendarIcon,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
+
+import { findCircuits } from "@/lib/circuit";
+import { saveRace } from "@/lib/race";
+
+/**
+ * Modal component for adding or updating a race.
+ *
+ * Props:
+ * - isOpen: boolean to control visibility
+ * - onClose: callback when closing modal
+ * - onSubmit: callback invoked with API response
+ * - raceToUpdate: optional race object for editing
+ */
+const AddRaceModal = ({ isOpen, onClose, onSubmit, raceToUpdate }) => {
   const currentYear = new Date().getFullYear();
+
+  // Circuits list and loading state
   const [circuits, setCircuits] = useState([]);
-  const [isLoadingCircuits, setIsLoadingCircuits] = useState(true);
+  const [loadingCircuits, setLoadingCircuits] = useState(false);
+
+  // Form state
   const [formData, setFormData] = useState({
+    id: null,
     year: currentYear,
     circuitId: "",
-    round: "",
     name: "",
+    round: "",
     date: "",
   });
 
+  /**
+   * Load circuits from API.
+   */
+  const loadCircuits = useCallback(async () => {
+    setLoadingCircuits(true);
+    try {
+      const data = await findCircuits();
+      setCircuits(data);
+    } catch (error) {
+      console.error("Error loading circuits:", error);
+      toast.error("Failed to load circuits.");
+    } finally {
+      setLoadingCircuits(false);
+    }
+  }, []);
+
+  /**
+   * Initialize form and fetch circuits when modal opens or raceToUpdate changes.
+   */
   useEffect(() => {
     if (!isOpen) return;
 
-    const loadCircuits = async () => {
-      setIsLoadingCircuits(true);
-      try {
-        const data = await findCircuits(); // await was missing
-        setCircuits(data);
-      } catch (error) {
-        console.error("Errore durante il caricamento dei circuiti:", error);
-        toast.error("Errore nel caricamento dei circuiti");
-      } finally {
-        setIsLoadingCircuits(false);
-      }
-    };
-
+    // Pre-fill form if editing an existing race
     if (raceToUpdate) {
       setFormData({
-        id: parseInt(raceToUpdate._id),
-        circuitId: raceToUpdate.circuitId,
-        date: raceToUpdate.date,
-        name: raceToUpdate.name,
-        round: raceToUpdate.round,
+        id: raceToUpdate._id,
         year: raceToUpdate.year,
+        circuitId: raceToUpdate.circuitId,
+        name: raceToUpdate.name,
+        round: String(raceToUpdate.round),
+        date: raceToUpdate.date,
+      });
+    } else {
+      // Reset form for new race
+      setFormData({
+        id: null,
+        year: currentYear,
+        circuitId: "",
+        name: "",
+        round: "",
+        date: "",
       });
     }
 
     loadCircuits();
-  }, [isOpen]);
+  }, [isOpen, raceToUpdate, currentYear, loadCircuits]);
 
-  const handleInputChange = (e) => {
+  /**
+   * Handle input changes.
+   */
+  const handleChange = useCallback((e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  /**
+   * Validate form and submit to API.
+   */
+  const handleSubmit = useCallback(
+    async (e) => {
+      e.preventDefault();
 
-    const selectedDate = new Date(formData.date);
-    const maxDate = new Date(currentYear, 11, 31);
+      // Validate date is within current year
+      const selected = new Date(formData.date);
+      const maxDate = new Date(currentYear, 11, 31);
+      if (selected > maxDate) {
+        toast.error(`Date cannot exceed ${currentYear}.`);
+        return;
+      }
 
-    if (selectedDate > maxDate) {
-      toast.error("La data non può essere oltre l'anno corrente");
-      return;
-    }
+      try {
+        const payload = {
+          _id: formData.id,
+          year: formData.year,
+          circuitId: parseInt(formData.circuitId, 10),
+          name: formData.name.trim(),
+          round: parseInt(formData.round, 10),
+          date: formData.date,
+        };
 
-    try {
-      console.log("form data");
-      console.log(formData);
-
-      const response = await saveRace(formData);
-      onSubmit?.(response);
-      setFormData({
-        year: currentYear,
-        circuitId: "",
-        round: "",
-        name: "",
-        date: "",
-      });
-      onClose();
-    } catch (error) {
-      console.error("Errore API:", error);
-      toast.error("Errore durante il salvataggio della gara");
-    }
-  };
+        const response = await saveRace(payload);
+        toast.success("Race saved successfully.");
+        onSubmit?.(response);
+        onClose();
+      } catch (error) {
+        console.error("Error saving race:", error);
+        toast.error("Failed to save race.");
+      }
+    },
+    [formData, currentYear, onSubmit, onClose]
+  );
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="bg-gradient-to-r from-red-600 to-red-800 text-white p-6 rounded-t-lg">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold flex items-center">
-              <CirclePlus className="mr-3 w-6 h-6" />
-              Add New Race
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-white hover:text-red-200 transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+      <div className="w-full max-w-md overflow-y-auto rounded-lg bg-white shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between rounded-t-lg bg-gradient-to-r from-red-600 to-red-800 p-6 text-white">
+          <h2 className="flex items-center text-xl font-bold">
+            <CirclePlus className="mr-2 h-6 w-6" />
+            {raceToUpdate ? "Edit Race" : "Add New Race"}
+          </h2>
+          <button onClick={onClose} aria-label="Close modal">
+            <X className="h-6 w-6 hover:text-red-200" />
+          </button>
         </div>
 
-        {isLoadingCircuits ? (
+        {/* Body */}
+        {loadingCircuits ? (
           <div className="p-6 text-center text-gray-600">
             Loading circuits...
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="p-6 space-y-6">
-            {/* Year */}
+          <form onSubmit={handleSubmit} className="space-y-5 p-6">
+            {/* Year (read-only) */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Calendar className="inline w-4 h-4 mr-2" />
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                <CalendarIcon className="inline mr-1 w-4 h-4" />
                 Year
               </label>
               <input
-                type="number"
                 name="year"
                 value={formData.year}
                 readOnly
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
+                className="w-full rounded-lg border-gray-300 bg-gray-100 px-3 py-2 text-gray-700 cursor-not-allowed"
               />
             </div>
 
-            {/* Circuit */}
+            {/* Circuit selector */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <MapPin className="inline w-4 h-4 mr-2" />
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                <MapPin className="inline mr-1 w-4 h-4" />
                 Circuit *
               </label>
               <select
                 name="circuitId"
                 value={formData.circuitId}
-                onChange={handleInputChange}
+                onChange={handleChange}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-700"
+                className="w-full rounded-lg border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500 text-gray-700"
               >
-                <option value="">Select circuit...</option>
-                {circuits.map((circuit) => (
-                  <option key={circuit._id} value={circuit._id}>
-                    {circuit.name} - {circuit.location}, {circuit.country}
+                <option value="">Select a circuit...</option>
+                {circuits.map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.name} — {c.location}, {c.country}
                   </option>
                 ))}
               </select>
@@ -152,54 +193,54 @@ function AddRaceModal({ isOpen, onClose, onSubmit, raceToUpdate }) {
 
             {/* Race Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Trophy className="inline w-4 h-4 mr-2" />
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                <Trophy className="inline mr-1 w-4 h-4" />
                 Race Name *
               </label>
               <input
-                type="text"
                 name="name"
+                type="text"
                 value={formData.name}
-                onChange={handleInputChange}
+                onChange={handleChange}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-700"
-                placeholder="Enter race name..."
+                placeholder="Enter race name"
+                className="w-full rounded-lg border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500 text-gray-700"
               />
             </div>
 
             {/* Round */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Calendar className="inline w-4 h-4 mr-2" />
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                <CalendarIcon className="inline mr-1 w-4 h-4" />
                 Round
               </label>
               <input
-                type="number"
                 name="round"
-                placeholder="Enter race round..."
+                type="number"
                 value={formData.round}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-700"
+                onChange={handleChange}
+                placeholder="Enter round number"
+                className="w-full rounded-lg border-gray-300 px-3 py-2 text-gray-700"
               />
             </div>
 
-            {/* Race Date */}
+            {/* Date */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Calendar className="inline w-4 h-4 mr-2" />
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                <CalendarIcon className="inline mr-1 w-4 h-4" />
                 Race Date *
               </label>
               <input
-                type="date"
                 name="date"
+                type="date"
                 value={formData.date}
-                onChange={handleInputChange}
+                onChange={handleChange}
                 required
                 max={`${currentYear}-12-31`}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-700"
+                className="w-full rounded-lg border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500 text-gray-700"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Date cannot exceed current year ({currentYear})
+              <p className="mt-1 text-xs text-gray-500">
+                Date must be within {currentYear}
               </p>
             </div>
 
@@ -208,15 +249,15 @@ function AddRaceModal({ isOpen, onClose, onSubmit, raceToUpdate }) {
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50 transition"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="flex-1 px-4 py-2 bg-gradient-to-r from-red-600 to-red-800 text-white rounded-lg hover:from-red-700 hover:to-red-900 transition-all duration-200 font-medium"
+                className="flex-1 rounded-lg bg-gradient-to-r from-red-600 to-red-800 px-4 py-2 text-white font-medium hover:from-red-700 hover:to-red-900 transition"
               >
-                Add Race
+                {raceToUpdate ? "Update Race" : "Add Race"}
               </button>
             </div>
           </form>
@@ -224,6 +265,6 @@ function AddRaceModal({ isOpen, onClose, onSubmit, raceToUpdate }) {
       </div>
     </div>
   );
-}
+};
 
 export default AddRaceModal;

@@ -27,10 +27,18 @@ def find_result_by_id(id):
 def save_result():
     try:
         result = ResultModel(**request.get_json())
+        result_id = result_service.save(result)
+        return jsonify({'message': 'Result saved', '_id': result_id}), 201
+
     except ValidationError as e:
         return jsonify({'errors': e.errors()}), 422
-    result_id = result_service.save(result)
-    return jsonify({'message': 'Result saved', '_id': result_id}), 201
+
+    except ValueError as e:
+        # Qui catturo il ValueError lanciato dal service
+        return jsonify({'error': str(e)}), 400
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # Route to delete a result by its ID
 @result_bp.route('/<id>', methods=['DELETE'])

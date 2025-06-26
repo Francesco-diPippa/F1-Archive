@@ -20,17 +20,22 @@ import { findSeason, findSeasonDriverStanding } from "@/lib/season";
 import { deleteRace, findRace } from "@/lib/race";
 import { deleteResult, findResult, getRaceStandigs } from "@/lib/result";
 
+/**
+ * SeasonDetail
+ * Displays season overview, driver standings, and race calendar.
+ * Handles CRUD operations for races and race results.
+ */
 const SeasonDetail = () => {
   const router = useRouter();
   const { year } = useParams();
 
-  // Data states
+  // Data
   const [seasonData, setSeasonData] = useState(null);
   const [driverStandings, setDriverStandings] = useState([]);
   const [races, setRaces] = useState([]);
   const [raceResults, setRaceResults] = useState({});
 
-  // UI states
+  // UI State
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("drivers");
   const [addRaceOpen, setAddRaceOpen] = useState(false);
@@ -39,34 +44,35 @@ const SeasonDetail = () => {
   const [expandedRaces, setExpandedRaces] = useState(new Set());
   const [loadingResults, setLoadingResults] = useState(new Set());
 
-  // Deletion modal states
+  // Delete modals
   const [showConfirm, setShowConfirm] = useState(false);
   const [selectedRaceId, setSelectedRaceId] = useState(null);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [showConfirmResult, setShowConfirmResult] = useState(false);
   const [selectedResultId, setSelectedResultId] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  // Update modal
+  // Editing results
   const [resultToUpdate, setResultToUpdate] = useState(null);
+  const [raceToUpdate, setRaceToUpdate] = useState(null);
 
   /**
-   * Load season details and driver standings.
+   * Fetch season info and driver standings.
    */
   const loadSeasonData = useCallback(async () => {
     setLoading(true);
     try {
       const season = await findSeason(year);
       if (!season) {
-        toast.error("Failed to load season.");
+        toast.error("Season not found.");
         return router.back();
       }
-
       const standings = await findSeasonDriverStanding(year);
       setSeasonData(season);
       setRaces(season.races);
       setDriverStandings(standings);
-    } catch (err) {
-      console.error("Error loading season data:", err);
+    } catch (error) {
+      console.error("Failed to load season data:", error);
+      toast.error("Failed to load season data.");
     } finally {
       setLoading(false);
     }
@@ -77,19 +83,18 @@ const SeasonDetail = () => {
   }, [loadSeasonData]);
 
   /**
-   * Load results for a specific race.
+   * Load results for a given race (with optional force reload).
    */
   const loadRaceResults = useCallback(
-    async (raceId, forceReload = false) => {
-      if (!forceReload && raceResults[raceId]) return;
-
+    async (raceId, force = false) => {
+      if (!force && raceResults[raceId]) return;
       setLoadingResults((prev) => new Set(prev).add(raceId));
       try {
         const results = await getRaceStandigs(raceId);
         setRaceResults((prev) => ({ ...prev, [raceId]: results }));
       } catch (error) {
-        console.error("Error loading race results:", error);
-        toast.error("Failed to load results.");
+        console.error("Failed to load race results:", error);
+        toast.error("Unable to load race results.");
       } finally {
         setLoadingResults((prev) => {
           const updated = new Set(prev);
@@ -102,28 +107,27 @@ const SeasonDetail = () => {
   );
 
   /**
-   * Expand/collapse race results dropdown.
+   * Toggle expansion of race result list.
    */
   const toggleRaceResults = useCallback(
     async (raceId) => {
-      const newExpanded = new Set(expandedRaces);
-      if (newExpanded.has(raceId)) {
-        newExpanded.delete(raceId);
+      const expanded = new Set(expandedRaces);
+      if (expanded.has(raceId)) {
+        expanded.delete(raceId);
       } else {
-        newExpanded.add(raceId);
+        expanded.add(raceId);
         await loadRaceResults(raceId);
       }
-      setExpandedRaces(newExpanded);
+      setExpandedRaces(expanded);
     },
     [expandedRaces, loadRaceResults]
   );
 
   /**
-   * Aggregated statistics from driver standings.
+   * Compute aggregated season statistics.
    */
   const seasonStats = useMemo(() => {
     if (!driverStandings.length) return {};
-
     const totalPoints = driverStandings.reduce(
       (sum, d) => sum + d.totalPoints,
       0
@@ -131,7 +135,6 @@ const SeasonDetail = () => {
     const totalWins = driverStandings.reduce((sum, d) => sum + d.wins, 0);
     const uniqueTeams = new Set(driverStandings.map((d) => d.constructorName))
       .size;
-
     return {
       totalDrivers: driverStandings.length,
       totalPoints,
@@ -141,34 +144,36 @@ const SeasonDetail = () => {
   }, [driverStandings]);
 
   /**
-   * Handle race addition.
+   * Handle race creation or update.
    */
   const handleAddRace = useCallback(
     async (response) => {
       if (response.status === 201) {
-        toast.success(response.data.message);
         await loadSeasonData();
-        if (selectedRace?.raceId)
+        if (selectedRace?.raceId) {
           await loadRaceResults(selectedRace.raceId, true);
+        }
       }
     },
     [loadSeasonData, loadRaceResults, selectedRace]
   );
 
+  /**
+   * Open modal for editing a race.
+   */
   const handleUpdateRace = useCallback(async (raceId) => {
     try {
-      const race = await findRace(parseInt(raceId));
-      setSelectedRace(race);
+      const race = await findRace(parseInt(raceId, 10));
+      setResultToUpdate(race);
       setAddRaceOpen(true);
     } catch (error) {
-      console.error("Error loading race:", error);
-      toast.error("Failed to load race.");
-      setAddRaceOpen(false);
+      console.error("Failed to load race:", error);
+      toast.error("Unable to load race for editing.");
     }
   }, []);
 
   /**
-   * Prepare deletion confirmation.
+   * Initiate race deletion confirmation.
    */
   const handleDeleteRace = useCallback((raceId) => {
     setSelectedRaceId(raceId);
@@ -176,11 +181,10 @@ const SeasonDetail = () => {
   }, []);
 
   /**
-   * Confirm and perform race deletion.
+   * Confirm and delete race.
    */
   const confirmDelete = useCallback(async () => {
     if (!selectedRaceId) return;
-
     setIsDeleting(true);
     try {
       const res = await deleteRace(selectedRaceId);
@@ -190,8 +194,8 @@ const SeasonDetail = () => {
       } else {
         toast.error("Failed to delete race.");
       }
-    } catch (err) {
-      console.error("Delete error:", err);
+    } catch (error) {
+      console.error("Error deleting race:", error);
       toast.error("Unexpected error.");
     } finally {
       setIsDeleting(false);
@@ -201,62 +205,48 @@ const SeasonDetail = () => {
   }, [selectedRaceId, loadSeasonData]);
 
   /**
-   * Handle submission of race results.
+   * Handle adding or updating race results.
    */
   const handleAddResults = useCallback(
     async (result, raceId) => {
-      console.log(raceId);
-
       if (!result) return toast.error("Failed to save results.");
-
       try {
         toast.success("Results saved.");
         await loadSeasonData();
         await loadRaceResults(raceId, true);
-        if (raceId) {
-          // Clear cache and force reload
-          setRaceResults((prev) => {
-            const updated = { ...prev };
-            delete updated[raceId];
-            return updated;
-          });
-
-          await loadRaceResults(raceId, true);
-        }
-
         setAddResultOpen(false);
-      } catch (err) {
-        console.error("Error saving results:", err);
+      } catch (error) {
+        console.error("Error saving results:", error);
         toast.error("Error saving results.");
       }
     },
     [loadSeasonData, loadRaceResults]
   );
 
+  /**
+   * Prepare deletion confirmation for a result.
+   */
   const handleDeleteResult = useCallback((resultId, raceId) => {
     setSelectedResultId({ id: resultId, raceId });
     setShowConfirmResult(true);
   }, []);
 
+  /**
+   * Confirm and delete race result.
+   */
   const confirmDeleteResult = useCallback(async () => {
-    console.log(selectedResultId);
-
-    if (!selectedResultId.id) return;
-
+    if (!selectedResultId?.id) return;
     setIsDeleting(true);
     try {
       const res = await deleteResult(selectedResultId.id);
-      console.log(res);
       if (res.status === 200) {
         toast.success("Result deleted successfully");
-
-        // Ricarica i risultati aggiornati
         await loadRaceResults(selectedResultId.raceId, true);
       } else {
         toast.error("Failed to delete result.");
       }
-    } catch (err) {
-      console.error("Error deleting result:", err);
+    } catch (error) {
+      console.error("Error deleting result:", error);
       toast.error("Unexpected error.");
     } finally {
       setIsDeleting(false);
@@ -265,41 +255,37 @@ const SeasonDetail = () => {
     }
   }, [selectedResultId, loadRaceResults]);
 
+  /**
+   * Open modal for editing a race result.
+   */
   const handleUpdateResult = useCallback(async (resultId) => {
-    console.log(`Updating ${resultId}`);
     try {
       const result = await findResult(resultId);
-      setResultToUpdate(result);
       const race = await findRace(result.raceId);
-      console.log(race);
-
+      setResultToUpdate(result);
       setSelectedRace(race);
       setAddResultOpen(true);
     } catch (error) {
-      console.error("Error loading race results:", error);
-      toast.error("Failed to load results.");
-      setAddRaceOpen(false);
-      setSelectedRace(null);
+      console.error("Failed to load result for editing:", error);
+      toast.error("Unable to load result.");
     }
   }, []);
 
-  if (loading) return <LoadingSpinner />;
+  if (loading) {
+    return <LoadingSpinner />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-
-      {/* Hero section with main season info */}
       <HeroSectionSeason
         seasonData={seasonData}
         router={router}
         firstDriver={driverStandings[0]}
       />
-
-      {/* Summary statistics */}
       <SeasonStats seasonStats={seasonStats} />
 
-      {/* Tabs for drivers and races */}
+      {/* Drivers vs Races Tabs */}
       <section className="py-12">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex border-b mb-8">
@@ -327,11 +313,9 @@ const SeasonDetail = () => {
             </button>
           </div>
 
-          {activeTab === "drivers" && (
+          {activeTab === "drivers" ? (
             <DriverStandingsTable driverStandings={driverStandings} />
-          )}
-
-          {activeTab === "races" && (
+          ) : (
             <RaceCalendarTable
               year={year}
               races={races}
@@ -356,9 +340,12 @@ const SeasonDetail = () => {
       {/* Modals */}
       <AddRaceModal
         isOpen={addRaceOpen}
-        onClose={() => setAddRaceOpen(false)}
+        onClose={() => {
+          setAddRaceOpen(false);
+          setRaceToUpdate(null);
+        }}
         onSubmit={handleAddRace}
-        raceToUpdate={selectedRace}
+        raceToUpdate={raceToUpdate}
       />
 
       <ConfirmDeleteModal
@@ -373,9 +360,12 @@ const SeasonDetail = () => {
 
       <AddRaceResultsModal
         isOpen={addResultOpen}
-        onClose={() => setAddResultOpen(false)}
-        onSubmit={(result) =>
-          handleAddResults(result, selectedRace?.raceId || selectedRace?._id)
+        onClose={() => {
+          setAddResultOpen(false);
+          setResultToUpdate(null);
+        }}
+        onSubmit={(res) =>
+          handleAddResults(res, selectedRace?.raceId || selectedRace?._id)
         }
         selectedRace={selectedRace}
         resultToUpdate={resultToUpdate}

@@ -20,7 +20,7 @@ class CircuitService:
         if country:
             query['country'] = country
 
-        cursor = self.collection.find(query)
+        cursor = self.collection.find(query).sort('name', 1)
 
         if sort_alpha == 'asc':
             cursor.sort('name', ASCENDING)

@@ -1,155 +1,190 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { X, CirclePlus, User, Flag, Calendar } from "lucide-react";
-import { saveDriver } from "@/lib/driver";
+
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  X,
+  CirclePlus,
+  User,
+  Flag,
+  Calendar as CalendarIcon,
+} from "lucide-react";
 import toast from "react-hot-toast";
+import { saveDriver } from "@/lib/driver";
 
-function getDate(rawDate) {
+/**
+ * Formats a raw date string (ISO) into YYYY-MM-DD.
+ * @param {string} rawDate - The raw ISO date string.
+ * @returns {string} - Formatted date for input value.
+ */
+const formatDate = (rawDate) => {
   const date = new Date(rawDate);
-  const pad = (n) => n.toString().padStart(2, "0");
-
+  const pad = (num) => num.toString().padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
     date.getDate()
   )}`;
-}
+};
 
-function AddDriverModal({
+/**
+ * Modal component for adding or editing a driver.
+ *
+ * Props:
+ * @param {boolean} isOpen - Controls modal visibility.
+ * @param {() => void} onClose - Callback to close modal.
+ * @param {string[]} nationalities - List of nationality options.
+ * @param {(response: any) => void} onSubmit - Callback after successful save.
+ * @param {object} [driverToUpdate] - Existing driver object for editing.
+ */
+const AddDriverModal = ({
   isOpen,
   onClose,
   nationalities,
   onSubmit,
   driverToUpdate,
-}) {
+}) => {
   const [formData, setFormData] = useState({
     forename: "",
     surname: "",
     nationality: "",
     dob: "",
     url: "",
+    id: null,
   });
 
+  /**
+   * Initializes form data when modal opens or driverToUpdate changes.
+   */
   useEffect(() => {
-    if (driverToUpdate && isOpen) {
+    if (!isOpen) return;
+
+    if (driverToUpdate) {
       setFormData({
+        id: driverToUpdate._id,
         forename: driverToUpdate.forename || "",
         surname: driverToUpdate.surname || "",
         nationality: driverToUpdate.nationality || "",
-        dob: getDate(driverToUpdate.dob) || "",
+        dob: driverToUpdate.dob ? formatDate(driverToUpdate.dob) : "",
         url: driverToUpdate.url || "",
-        id: driverToUpdate._id,
       });
-    } else if (isOpen) {
+    } else {
       setFormData({
         forename: "",
         surname: "",
         nationality: "",
         dob: "",
         url: "",
+        id: null,
       });
     }
-  }, [driverToUpdate, isOpen]);
+  }, [isOpen, driverToUpdate]);
 
-  const handleInputChange = (e) => {
+  /**
+   * Handles input changes for controlled inputs.
+   */
+  const handleChange = useCallback((e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  /**
+   * Submits form data to save or update a driver.
+   */
+  const handleSubmit = useCallback(
+    async (e) => {
+      e.preventDefault();
+      try {
+        const payload = {
+          _id: formData.id,
+          forename: formData.forename.trim(),
+          surname: formData.surname.trim(),
+          nationality: formData.nationality,
+          dob: formData.dob,
+          url: formData.url.trim(),
+        };
 
-    try {
-      console.log(formData);
-
-      const response = await saveDriver(formData);
-      onSubmit(response); // facoltativo, dipende se vuoi passare i dati al parent
-      // Reset form
-      setFormData({
-        forename: "",
-        surname: "",
-        nationality: "",
-        dob: "",
-        url: "",
-      });
-      onClose();
-    } catch (error) {
-      console.error("Errore API:", error);
-      toast.error(toString(error));
-      // opzionale: mostrare un messaggio di errore all'utente
-    }
-  };
+        const response = await saveDriver(payload);
+        toast.success(response.data?.message || "Driver saved successfully.");
+        onSubmit?.(response);
+        setFormData({
+          forename: "",
+          surname: "",
+          nationality: "",
+          dob: "",
+          url: "",
+          id: null,
+        });
+        onClose();
+      } catch (error) {
+        console.error("Error saving driver:", error);
+        toast.error(error?.message || "Failed to save driver.");
+      }
+    },
+    [formData, onSubmit, onClose]
+  );
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-        {/* Modal Header */}
-        <div className="bg-gradient-to-r from-red-600 to-red-800 text-white p-6 rounded-t-lg">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold flex items-center">
-              <CirclePlus className="mr-3 w-6 h-6" />
-              Add New Driver
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-white hover:text-red-200 transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+      <div className="w-full max-w-md overflow-y-auto rounded-lg bg-white shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between rounded-t-lg bg-gradient-to-r from-red-600 to-red-800 p-6 text-white">
+          <h2 className="flex items-center text-xl font-bold">
+            <CirclePlus className="mr-2 h-6 w-6" />
+            {driverToUpdate ? "Edit Driver" : "Add New Driver"}
+          </h2>
+          <button onClick={onClose} aria-label="Close modal">
+            <X className="h-6 w-6 hover:text-red-200" />
+          </button>
         </div>
 
-        {/* Modal Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-5 p-6">
           {/* First Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <User className="inline w-4 h-4 mr-2" />
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              <User className="inline mr-1 h-4 w-4" />
               First Name *
             </label>
             <input
-              type="text"
               name="forename"
+              type="text"
               value={formData.forename}
-              onChange={handleInputChange}
+              onChange={handleChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-700"
-              placeholder="Enter first name..."
+              placeholder="Enter first name"
+              className="w-full rounded-lg border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500 text-gray-700"
             />
           </div>
 
           {/* Last Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <User className="inline w-4 h-4 mr-2" />
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              <User className="inline mr-1 h-4 w-4" />
               Last Name *
             </label>
             <input
-              type="text"
               name="surname"
+              type="text"
               value={formData.surname}
-              onChange={handleInputChange}
+              onChange={handleChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-700"
-              placeholder="Enter last name..."
+              placeholder="Enter last name"
+              className="w-full rounded-lg border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500 text-gray-700"
             />
           </div>
 
           {/* Nationality */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Flag className="inline w-4 h-4 mr-2" />
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              <Flag className="inline mr-1 h-4 w-4" />
               Nationality *
             </label>
             <select
               name="nationality"
               value={formData.nationality}
-              onChange={handleInputChange}
+              onChange={handleChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-700"
+              className="w-full rounded-lg border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500 text-gray-700"
             >
               <option value="">Select nationality...</option>
               {nationalities.map((nat) => (
@@ -162,55 +197,55 @@ function AddDriverModal({
 
           {/* Date of Birth */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Calendar className="inline w-4 h-4 mr-2" />
-              Date of Birth
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              <CalendarIcon className="inline mr-1 h-4 w-4" />
+              Date of Birth *
             </label>
             <input
-              type="date"
               name="dob"
+              type="date"
               value={formData.dob}
+              onChange={handleChange}
               required
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-700"
+              className="w-full rounded-lg border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500 text-gray-700"
             />
           </div>
 
-          {/* URL/Wikipedia */}
+          {/* Wikipedia URL */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Wikipedia URL
             </label>
             <input
-              type="url"
               name="url"
+              type="url"
               value={formData.url}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-700"
+              onChange={handleChange}
               placeholder="https://en.wikipedia.org/wiki/..."
+              className="w-full rounded-lg border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-2 focus:ring-red-500 text-gray-700"
             />
           </div>
 
-          {/* Form Actions */}
+          {/* Actions */}
           <div className="flex space-x-4 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50 transition"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-gradient-to-r from-red-600 to-red-800 text-white rounded-lg hover:from-red-700 hover:to-red-900 transition-all duration-200 font-medium"
+              className="flex-1 rounded-lg bg-gradient-to-r from-red-600 to-red-800 px-4 py-2 text-white font-medium hover:from-red-700 hover:to-red-900 transition"
             >
-              Add Driver
+              {driverToUpdate ? "Update Driver" : "Add Driver"}
             </button>
           </div>
         </form>
       </div>
     </div>
   );
-}
+};
 
 export default AddDriverModal;

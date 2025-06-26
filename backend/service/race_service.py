@@ -17,7 +17,7 @@ class RaceService:
             "date": race.date,
             "url": race.url
         }
-
+        print(race)
         if race.id:
             result = self.collection.update_one(
                 {'_id': race.id},

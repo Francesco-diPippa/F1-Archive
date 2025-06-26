@@ -41,9 +41,11 @@ export async function findRacesByDriverId(driverId) {
  * @returns {Promise<Object|null>} Axios response or null on failure
  */
 export async function saveRace(race) {
+  console.log(race);
+
   try {
     const response = await axios.post(BASE_URL, {
-      _id: race?.id,
+      _id: race?._id,
       year: race.year,
       round: race.round,
       circuitId: race.circuitId,
