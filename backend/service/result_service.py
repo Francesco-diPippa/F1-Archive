@@ -31,7 +31,7 @@ class ResultService:
             query["_id"] = {"$ne": exclude_id}
         if self.collection.count_documents(query) > 0:
             raise ValueError(
-                f"Per la gara {race_id} la posizione di partenza ({grid}) o di arrivo ({position_order}) è già presente"
+                f"For race {race_id}, the starting position ({grid}) or finishing position ({position_order}) is already available."
             )
 
     def _check_unique_driver(
@@ -49,7 +49,7 @@ class ResultService:
             query["_id"] = {"$ne": exclude_id}
         if self.collection.count_documents(query) > 0:
             raise ValueError(
-                f"Per la gara {race_id} il pilota {driver_id} è già presente"
+                f"For the race {race_id}, driver {driver_id} still present"
             )
 
     def save(self, result: ResultModel) -> Union[int, None]:
