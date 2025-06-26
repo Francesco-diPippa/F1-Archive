@@ -5,12 +5,8 @@ import {
   ArrowLeft,
   Calendar,
   Trophy,
-  User,
-  Car,
   Filter,
   X,
-  ArrowDownAZ,
-  ArrowUpZA,
 } from "lucide-react";
 import Header from "@/components/Header";
 import { findDriverResults } from "@/lib/driver";
