@@ -49,7 +49,7 @@ function SeasonCard({ season, onDelete }) {
         <div className="flex items-center justify-between pt-2 text-sm text-gray-600">
           <div className="flex items-center">
             <MapPin className="w-4 h-4 mr-1" />
-            {season.raceCount} gare
+            {season.raceCount} races
           </div>
           <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-red-600 transition-colors" />
         </div>

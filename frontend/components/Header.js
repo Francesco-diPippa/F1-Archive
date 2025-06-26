@@ -22,7 +22,7 @@ function Header() {
                 <Trophy className="w-5 h-5 text-white" />
               </div>
               <h1 className="text-xl font-bold text-gray-900">
-                Formula 1 Dashboard
+                Formula 1 Archive
               </h1>
             </div>
           </Link>
