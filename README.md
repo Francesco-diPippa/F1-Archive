@@ -71,16 +71,8 @@ Modifica i parametri di connessione a MongoDB in `backend/config.py`.
 
 Dataset utilizzato: [Formula 1 World Championship 1950-2020 - Kaggle](https://www.kaggle.com/datasets/rohanrao/formula-1-world-championship-1950-2020)
 
-## 📸 Screenshot
-
-_(Inserire qui alcune immagini della webapp: home, pagina stagione, pagina pilota, ecc.)_
-
 ## 📚 Autore
 
 - Francesco Pio di Pippa  
   Università degli Studi di Salerno  
   Matricola: 0522501928
-
-## 📄 Licenza
-
-Questo progetto è a scopo didattico e non è distribuito con una licenza ufficiale.
